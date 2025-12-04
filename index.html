@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NI - Graphic Designer</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="site-intro">
+        <h1>HEY, I'M NI</h1>
+        <h2>A GRAPHIC DESIGNER</h2>
+    </div>
+
+    <section id="login-page">
+        <div class="login-content">
+            <div class="date-time">
+                <h1 id="clock-time">12:00</h1>
+                <p id="clock-date">Monday, June 5</p>
+            </div>
+            <div class="password-wrapper" onclick="unlockScreen()">
+                <span>ENTER</span>
+            </div>
+        </div>
+    </section>
+
+    <section id="home-page" class="page active">
+        <div class="grid-background"></div>
+        
+        <div class="scene">
+            <div class="spine-wrapper">
+                <div class="book-spine" id="book-spine"></div>
+            </div>
+        </div>
+
+        <div class="text-nav">
+            <span onclick="openPhotoGallery()">Photography</span>
+            <span onclick="window.open('https://www.instagram.com/p/DO-i2LVE80f/', '_blank')">Motion</span>
+            <span onclick="openContactModal()">Contact</span>
+        </div>
+    </section>
+
+    <div id="project-modal" class="modal-overlay hidden" onclick="closeProjectModal()">
+        <div class="finder-window" onclick="event.stopPropagation()">
+            <div class="finder-header">
+                <div class="close-icon" onclick="closeProjectModal()">✕</div>
+                <span class="finder-title" id="detail-title">Project</span>
+                <div style="width:30px;"></div>
+            </div>
+            <div class="finder-content" id="detail-content"></div>
+        </div>
+    </div>
+
+    <div id="contact-modal" class="modal-overlay hidden" onclick="closeContactModal()">
+        <div class="finder-window contact-window" onclick="event.stopPropagation()">
+            <div class="finder-header">
+                <div class="close-icon" onclick="closeContactModal()">✕</div>
+                <span class="finder-title">CONTACT INFO</span>
+                <div style="width:30px;"></div>
+            </div>
+            <div class="finder-content contact-content">
+                <div class="contact-card">
+                    <div class="contact-row">
+                        <span class="label">NAME</span><span class="value">NI</span>
+                    </div>
+                    <div class="contact-row">
+                        <span class="label">ROLE</span><span class="value">Graphic Designer</span>
+                    </div>
+                    <div class="contact-row">
+                        <span class="label">EMAIL</span><span class="value"><a href="mailto:trista1793@gmail.com">trista1793@gmail.com</a></span>
+                    </div>
+                    <div class="contact-row">
+                        <span class="label">SOCIAL</span><span class="value"><a href="https://instagram.com/pineal._.baby" target="_blank">Instagram ↗</a></span>
+                    </div>
+                    <div class="contact-row">
+                        <span class="label">NOTE</span>
+                        <span class="value" style="font-size: 12px; color: #666; line-height: 1.5;">Open for commission.<br>Working hours: 10:00 - 18:00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="lightbox" class="lightbox-overlay hidden" onclick="closeLightbox()">
+        <span class="close-btn">✕</span>
+        <img id="lightbox-img" src="" alt="Full View">
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
