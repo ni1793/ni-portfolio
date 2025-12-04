@@ -556,9 +556,12 @@ function createStarExplosion(x, y) {
 // 自定義游標 (紅色半透明 + 點擊縮放)
 // ===============================================
 
+// 修改：初始位置設為螢幕中央，避免一開始座標是 -100 而看不到
 const cursorState = {
-    x: -100, y: -100, 
-    bx: -100, by: -100, 
+    x: window.innerWidth / 2, 
+    y: window.innerHeight / 2, 
+    bx: window.innerWidth / 2, 
+    by: window.innerHeight / 2, 
     isHoveringCover: false
 };
 
@@ -616,15 +619,26 @@ function loopCursor() {
 
     const isMobile = window.innerWidth <= 768;
 
-    // 如果登入頁開啟中，強制隱藏氣泡與自定義游標
+    // ------------------------------------
+    // 狀態 A: 登入頁開啟中 (Login Page)
+    // ------------------------------------
     if (isLoginOpen) {
+        // 確保氣泡隱藏
         bubble.classList.remove('active');
         bubble.classList.remove('active-mobile');
-        mainCursor.style.opacity = '0'; // 登入頁使用系統游標或粒子特效，隱藏紅色圓點
+        
+        if (isMobile) {
+             mainCursor.style.opacity = '0'; // 手機版不需要游標
+        } else {
+             // 【電腦版】：強制顯示紅色游標，且位置設為最高層級
+             mainCursor.style.opacity = '1'; 
+             mainCursor.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) scale(${cursorScale})`;
+        }
     }
-    // 以下為進入主頁後的邏輯
+    // ------------------------------------
+    // 狀態 B: 手機版 (Mobile)
+    // ------------------------------------
     else if (isMobile) {
-        // --- 手機版邏輯 ---
         if (!document.body.classList.contains('is-book-open')) {
             bubble.classList.add('active-mobile');
             bubble.classList.remove('active');
@@ -633,17 +647,19 @@ function loopCursor() {
         }
         mainCursor.style.opacity = '0';
     } 
+    // ------------------------------------
+    // 狀態 C: 電腦版主頁 (Desktop)
+    // ------------------------------------
     else {
-        // --- 電腦版邏輯 ---
         bubble.classList.remove('active-mobile');
 
-        // A. 封面模式
+        // C-1. 封面模式 (滑鼠在封面 且 書沒開) -> 顯示氣泡，隱藏紅點
         if (cursorState.isHoveringCover && !document.body.classList.contains('is-book-open')) {
             bubble.classList.add('active');
             mainCursor.style.opacity = '0'; 
             bubble.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) translate(-50%, -50%)`;
         } 
-        // B. 一般模式
+        // C-2. 一般模式 -> 顯示紅點，隱藏氣泡
         else {
             bubble.classList.remove('active');
             mainCursor.style.opacity = '1';
@@ -653,3 +669,6 @@ function loopCursor() {
 
     requestAnimationFrame(loopCursor);
 }
+
+initCustomCursor();
+loopCursor();

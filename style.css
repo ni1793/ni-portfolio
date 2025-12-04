@@ -300,21 +300,24 @@ body, html {
 }
 
 /* =========================================
-   2. 自定義主游標 (修改：紅色半透明)
+   2. 自定義主游標 (修正：層級提高)
    ========================================= */
 #main-cursor {
     position: fixed;
     top: 0; left: 0;
-    width: 15px; height: 15px; /* 稍微大一點點，比較好看 */
+    width: 15px; height: 15px;
     
     background-color: rgba(255, 50, 50, 0.6); /* 紅色半透明 */
-    border: none; /* 移除邊框 */
-    
+    border: none;
     border-radius: 50%;
-    pointer-events: none;
-    z-index: 10000;
+    
+    pointer-events: none; /* 確保點擊能穿透 */
+    
+    /* 修改：層級設為最高，確保蓋過登入頁 */
+    z-index: 9999999 !important; 
+    
     will-change: transform;
-    /* 不加 transition，因為位置由 JS 每幀控制，縮放由 JS 變數控制 */
+    display: block; /* 確保顯示 */
 }
 
 /* =========================================
