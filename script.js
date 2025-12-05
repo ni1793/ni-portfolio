@@ -9,7 +9,7 @@ const projects = [
         category: "展覽主視覺設計",  
         cover: "images/project1/01.jpg", 
         description: "The Distance Anywhere", 
-        images: ["images/project1/01.jpg", "images/project1/02.jpg", "images/project1/03.jpg", "images/project1/04.jpg", "images/project1/05.jpg"] 
+        images: ["images/project1/01.jpg", "images/project1/02.jpg", "images/project1/03.jpg","images/project1/04.jpg", "images/project1/05.jpg" ] 
     },
     { 
         id: 2, 
