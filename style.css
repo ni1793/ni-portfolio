@@ -395,20 +395,43 @@ body, html {
    6. 手機版優化 (Mobile Optimization)
    ========================================= */
 @media (max-width: 768px) {
-    /* --- 1. 書籍可視度調整 --- */
-    /* 修改：將 translateY 改為 200px (原本 50px)，讓書籍位置降低 */
+    
+    /* --- 1. 解決忽大忽小：強制關閉呼吸動畫 --- */
+    .scene:hover .spine-wrapper {
+        animation: none !important;
+    }
+
+    /* --- 2. 書籍位置與動態調整 --- */
     .spine-wrapper {
-        transform: rotateX(25deg) translateY(200px) scale(0.6) !important;
+        /* A. 閉合狀態 (預設) */
+        /* translateY(200px): 保持之前的垂直位置 */
+        /* scale(0.6): 手機版縮小 */
+        /* translateX(-90px): 關鍵修正！因為書寬300px，往左移讓封面視覺置中 */
+        transform: rotateX(25deg) translateY(200px) scale(0.6) translateX(-90px) !important;
+        
+        /* 加入平滑過渡動畫，讓移動不生硬 */
+        transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1) !important;
+    }
+
+    /* B. 打開狀態 (往右移動) */
+    /* 當 body 加上 is-book-open 類別時 (JS控制) */
+    body.is-book-open .spine-wrapper {
+        /* translateX(0px): 恢復到原點 (書背在中間)，視覺上就是「往右移」了 */
+        /* 這樣打開時，左右頁面會比較平衡地散開 */
+        transform: rotateX(25deg) translateY(200px) scale(0.6) translateX(0px) !important;
     }
     
-    /* 更小的螢幕 (如 iPhone SE) */
+    /* 更小的螢幕 (如 iPhone SE) 微調 */
     @media (max-width: 380px) {
         .spine-wrapper {
-            transform: rotateX(25deg) translateY(200px) scale(0.5) !important;
+            transform: rotateX(25deg) translateY(200px) scale(0.5) translateX(-100px) !important;
+        }
+        body.is-book-open .spine-wrapper {
+            transform: rotateX(25deg) translateY(200px) scale(0.5) translateX(0px) !important;
         }
     }
 
-    /* --- 2. 手機版氣泡框 (固定浮動) --- */
+    /* --- 3. 手機版氣泡框 (保持之前的設定) --- */
     #cursor-bubble {
         transition: opacity 0.3s !important;
     }
@@ -418,7 +441,6 @@ body, html {
         transform: translate(-50%, 0) scale(1) !important;
     }
 
-    /* 強制設定位置：螢幕中央水平，垂直位置在書本上方 */
     #cursor-bubble {
         top: 25% !important; 
         left: 50% !important;
@@ -426,14 +448,12 @@ body, html {
         animation: float-mobile 2s ease-in-out infinite;
     }
 
-    /* 書籍打開時，手機版氣泡必須隱藏 */
     body.is-book-open #cursor-bubble {
         display: none !important;
         opacity: 0 !important;
         animation: none;
     }
     
-    /* 手機版隱藏紅色游標 */
     #main-cursor {
         display: none !important;
     }
