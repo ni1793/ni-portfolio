@@ -45,6 +45,7 @@ const projects = [
     }
 ];
 
+// 封面 (Index 0)
 const coverProject = {
     id: 0,
     title: "PORTFOLIO",
@@ -54,6 +55,7 @@ const coverProject = {
     images: []
 };
 
+// 封底 (Index 6)
 const backCoverProject = {
     id: 999,
     title: "THE END",
@@ -62,6 +64,7 @@ const backCoverProject = {
     images: []
 };
 
+// 合併資料
 let projectsData = [coverProject].concat(projects).concat([backCoverProject]);
 const photographyData = ["images/album/01.jpg", "images/album/02.jpg", "images/album/03.jpg"];
 
@@ -76,7 +79,8 @@ let hoveredIndex = -1;
 
 const TOTAL_SPAN = 100; 
 
-let currentIndex = 1; 
+// [關鍵] 初始為 0 (封面)
+let currentIndex = 0; 
 
 let isDragging = false;
 let startX = 0;
@@ -89,6 +93,7 @@ let activePageElement = null;
 
 let isSliderDragging = false;
 
+// 角度計算與同步工具
 function updateTargetAngleByIndex() {
     const count = projectsData.length;
     const step = TOTAL_SPAN / (count - 1);
@@ -98,12 +103,13 @@ function updateTargetAngleByIndex() {
     
     // 手機版角度修正 (歸零，保持正對)
     if (window.innerWidth <= 768) {
-        exactAngle += -60; 
+        exactAngle += 0; 
     }
     
     targetAngle = exactAngle;
     velocity = 0; 
 
+    // 同步更新滑軌
     if (!isSliderDragging) {
         const slider = document.getElementById('page-slider');
         if (slider) {
@@ -112,6 +118,7 @@ function updateTargetAngleByIndex() {
     }
 }
 
+// 監聽滑軌事件
 document.addEventListener('DOMContentLoaded', () => {
     const slider = document.getElementById('page-slider');
     if (slider) {
@@ -131,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===============================================
-// 渲染書籍
+// 渲染書籍 (Render Book)
 // ===============================================
 function render3DBook() {
     const container = document.getElementById('book-spine');
@@ -140,6 +147,7 @@ function render3DBook() {
     if (!container) return;
     container.innerHTML = ''; 
     
+    // 自動設定滑軌範圍 (Min=1, Max=封底)
     if (slider) {
         slider.min = 1; 
         slider.max = projectsData.length - 1; 
@@ -225,6 +233,7 @@ function openBook() {
     if (window.innerWidth <= 768) {
         document.body.classList.add('reading-mode');
         
+        // [關鍵] 開書時，設定 index 為 1 (第一張作品)
         currentIndex = 1; 
         updateTargetAngleByIndex(); 
         
@@ -254,10 +263,27 @@ function closeBook() {
         page.style.transform = `rotateY(0deg) translateZ(${-index}px)`;
     });
     
+    // [關鍵] 關書時，歸零 index 為 0 (封面)
     targetAngle = 0;
     currentAngle = 0;
-    currentIndex = 1; 
+    currentIndex = 0; 
 }
+
+// ===============================================
+// [新增] 點擊背景關閉書籍監聽器
+// ===============================================
+document.addEventListener('click', (e) => {
+    // 只有在手機版 & 書籍打開時才運作
+    if (window.innerWidth <= 768 && isBookOpen) {
+        // 檢查點擊目標
+        // 如果點擊的不是 .book-page (書本) 且不是 #mobile-slider-container (滑軌容器) 且不是 view-more 按鈕
+        if (!e.target.closest('.book-page') && 
+            !e.target.closest('#mobile-slider-container') && 
+            !e.target.closest('.view-more-btn')) {
+            closeBook();
+        }
+    }
+});
 
 // ===============================================
 // 觸控與滑鼠事件
@@ -336,7 +362,7 @@ function handlePageClick(page, e) {
         return;
     } 
     
-    // 點擊即打開 (同時更新背景書本角度)
+    // 點擊即打開
     if (index < 1) index = 1;
     currentIndex = index;
     updateTargetAngleByIndex();
@@ -347,7 +373,7 @@ function handlePageClick(page, e) {
 }
 
 // ===============================================
-// 動畫迴圈 (包含手機版彈開效果)
+// 動畫迴圈
 // ===============================================
 function updateCarousel() {
     const container = document.getElementById('book-spine');
@@ -385,17 +411,10 @@ function updateCarousel() {
         let spreadOffset = 0;
         let extraFlip = 0;
 
-        // [關鍵修改] 彈開效果 (Spread Effect)
         if (window.innerWidth <= 768) {
-            // 手機版：根據 currentIndex 彈開左右鄰居
-            // 當前頁面不動 (spreadOffset = 0)
-            // 右邊的頁面 (index > currentIndex) 往右彈 (+40)
-            // 左邊的頁面 (index < currentIndex) 往左彈 (-40)
-            if (index > currentIndex) spreadOffset = 60; 
-            else if (index < currentIndex) spreadOffset = -60;
-            
+            if (index > currentIndex) spreadOffset = 40; 
+            else if (index < currentIndex) spreadOffset = -40;
         } else {
-            // 電腦版：維持原本的 hover 邏輯
             if (hoveredIndex !== -1) {
                 if (index > hoveredIndex) spreadOffset = 60; 
                 else if (index < hoveredIndex) spreadOffset = -60;
@@ -417,7 +436,7 @@ function updateCarousel() {
     requestAnimationFrame(updateCarousel);
 }
 
-// ... 後續函數 (openProjectDetail, Lightbox, Clock, 特效等) 保持不變 ...
+// ... 後續函數 (UI, Lightbox, Clock, Init) ...
 function openProjectDetail(id) {
     const project = projects.find(p => p.id === id);
     if (!project) return;
@@ -475,9 +494,7 @@ document.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' && loginPage && !loginPage.classList.contains('hidden')) unlockScreen();
 });
 
-// ===============================================
-// 粒子與游標特效
-// ===============================================
+// 粒子特效
 function initParticleTunnel() {
     const loginPage = document.getElementById('login-page');
     if (!loginPage) return;
@@ -539,22 +556,30 @@ document.addEventListener('mousemove', (e) => {
     cursorState.x = e.clientX; cursorState.y = e.clientY;
     cursorState.isHoveringCover = !!e.target.closest('.book-page.is-cover');
 });
+
+// [修正] 氣泡顯示邏輯：防止它在滾動時或書本打開時顯示
 function loopCursor() {
     const mainCursor = document.getElementById('main-cursor');
     const bubble = document.getElementById('cursor-bubble');
     const loginPage = document.getElementById('login-page');
     if (!mainCursor || !bubble) { requestAnimationFrame(loopCursor); return; }
+    
     const isLoginOpen = loginPage && !loginPage.classList.contains('hidden');
     cursorState.bx += (cursorState.x - cursorState.bx) * 0.2;
     cursorState.by += (cursorState.y - cursorState.by) * 0.2;
     const isMobile = window.innerWidth <= 768;
+
     if (isLoginOpen) {
         bubble.classList.remove('active', 'active-mobile');
         mainCursor.style.opacity = isMobile ? '0' : '1';
         if(!isMobile) mainCursor.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) scale(${cursorScale})`;
     } else if (isMobile) {
-        if (!document.body.classList.contains('is-book-open')) {
-            bubble.classList.add('active-mobile'); bubble.classList.remove('active');
+        // [關鍵修正] 檢查氣泡是否因為滾動而被隱藏 (hide-on-scroll)
+        const isHiddenByScroll = bubble.classList.contains('hide-on-scroll');
+        
+        if (!document.body.classList.contains('is-book-open') && !isHiddenByScroll) {
+            bubble.classList.add('active-mobile');
+            bubble.classList.remove('active');
         } else {
             bubble.classList.remove('active-mobile');
         }
@@ -607,16 +632,13 @@ function initMobilePhotoPreview() {
     const section = document.getElementById('mobile-photo-preview');
     if (section) observer.observe(section);
     
-    // [關鍵修改] 氣泡滾動消失監聽
+    // 滾動偵測
     window.addEventListener('scroll', () => {
         const bubble = document.getElementById('cursor-bubble');
         if (!bubble) return;
-        
-        // 只要稍微滑動 (10px) 就隱藏，確保不會留在書本上方
         if (window.scrollY > 10) {
             bubble.classList.add('hide-on-scroll');
         } else if (!document.body.classList.contains('is-book-open')) {
-            // 回到頂部且書沒開時，才顯示
             bubble.classList.remove('hide-on-scroll');
         }
     });
