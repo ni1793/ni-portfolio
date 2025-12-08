@@ -239,16 +239,18 @@ function handlePointerMove(e) {
     e.preventDefault();
 
     const deltaX = e.clientX - lastX;
+    
+    // [重要] 這裡要計算即時速度 (velocity)，給後面的慣性判斷使用
+    velocity = deltaX; 
+    
     lastX = e.clientX;
 
     if (isBookOpen) {
-        // [修改] 手機版增加靈敏度
-        // 如果螢幕小於 768px (手機)，速度乘數改為 1.2 (原本是 0.4，太慢了)
-        // 電腦版維持 0.4
-        const sensitivity = window.innerWidth <= 768 ? 1.2 : 0.4;
+        // [修改] 手機版靈敏度再次提升
+        // 原本 1.2 -> 改為 3.0，讓手指移動一點點就能大幅度翻頁
+        const sensitivity = window.innerWidth <= 768 ? 3.0 : 0.4;
         
         targetAngle += deltaX * sensitivity; 
-        velocity = deltaX * sensitivity; 
     }
 }
 function handlePointerUp(e) {
@@ -258,7 +260,7 @@ function handlePointerUp(e) {
 
     const dist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
 
-    // 1. 如果是點擊 (位移很小)，則執行點擊事件，不進行吸附計算
+    // 如果只是輕點一下，視為點擊事件
     if (dist < clickThreshold) {
         velocity = 0; 
         if (activePageElement) {
@@ -271,33 +273,37 @@ function handlePointerUp(e) {
     activePageElement = null;
 
     // ===============================================
-    // [新增] 手機版翻頁優化：自動吸附 (Snap Logic)
+    // [優化版] 手機版翻頁：自動吸附 + 甩動判斷
     // ===============================================
-    // 只有在手機版 (<=768px) 且書本打開時才啟用
     if (window.innerWidth <= 768 && isBookOpen) {
         const count = projectsData.length;
-        // 這些數值必須與 render3DBook 中的設定一致
         const totalSpan = 80; 
         const step = totalSpan / (count - 1);
         const startAngle = totalSpan / 2;
 
-        // 反推當前最接近哪一頁的 Index
-        // 公式原理：目標角度 ≈ -(頁面角度 - 起始角度)
-        // 所以：index ≈ (起始角度 - 目標角度) / 每頁間隔
+        // 計算當前「浮點數」頁碼 (例如現在翻到第 1.4 頁)
         let rawIndex = (startAngle - targetAngle) / step;
-        let snapIndex = Math.round(rawIndex);
+        let snapIndex;
 
-        // 邊界限制：防止滑超過第一頁或最後一頁
+        // [新增] 慣性判斷 (Throw Logic)
+        // velocity < -5 代表快速向左滑 (想翻下一頁)
+        // velocity > 5 代表快速向右滑 (想翻上一頁)
+        if (velocity < -5) {
+            snapIndex = Math.floor(rawIndex) + 1; // 強制進位到下一頁
+        } else if (velocity > 5) {
+            snapIndex = Math.ceil(rawIndex) - 1;  // 強制退位到上一頁
+        } else {
+            snapIndex = Math.round(rawIndex);     // 速度慢時，就找最近的一頁
+        }
+
+        // 邊界限制
         if (snapIndex < 0) snapIndex = 0;
         if (snapIndex >= count) snapIndex = count - 1;
 
-        // 計算該頁面「正對鏡頭」時的目標角度
         const snapTargetAngle = -(snapIndex * step - startAngle);
 
-        // [關鍵] 強制設定目標角度，並將慣性速度歸零
-        // 這樣畫面就會乖乖地停在該頁面，不會再亂滑
         targetAngle = snapTargetAngle;
-        velocity = 0; 
+        velocity = 0; // 歸零速度，讓它停在目標頁
     }
 }
 
