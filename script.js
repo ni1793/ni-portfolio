@@ -240,16 +240,14 @@ function handlePointerMove(e) {
 
     const deltaX = e.clientX - lastX;
     
-    // [重要] 這裡要計算即時速度 (velocity)，給後面的慣性判斷使用
+    // 紀錄這次移動的方向與速度
     velocity = deltaX; 
     
     lastX = e.clientX;
 
     if (isBookOpen) {
-        // [修改] 手機版靈敏度再次提升
-        // 原本 1.2 -> 改為 3.0，讓手指移動一點點就能大幅度翻頁
-        const sensitivity = window.innerWidth <= 768 ? 3.0 : 0.4;
-        
+        // [修改] 手機版靈敏度設為 2.0 (適中順手)
+        const sensitivity = window.innerWidth <= 768 ? 2.0 : 0.4;
         targetAngle += deltaX * sensitivity; 
     }
 }
@@ -259,9 +257,10 @@ function handlePointerUp(e) {
     document.querySelector('.scene').style.cursor = 'grab';
 
     const dist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
+    const totalMoveX = e.clientX - downX; // 計算總水平位移
 
-    // 如果只是輕點一下，視為點擊事件
-    if (dist < clickThreshold) {
+    // 1. 如果幾乎沒動 (小於 10px)，視為「點擊」
+    if (dist < 10) {
         velocity = 0; 
         if (activePageElement) {
             handlePageClick(activePageElement, e);
@@ -273,7 +272,7 @@ function handlePointerUp(e) {
     activePageElement = null;
 
     // ===============================================
-    // [優化版] 手機版翻頁：自動吸附 + 甩動判斷
+    // [最終優化版] 手機版翻頁：直覺式強制翻頁
     // ===============================================
     if (window.innerWidth <= 768 && isBookOpen) {
         const count = projectsData.length;
@@ -281,32 +280,48 @@ function handlePointerUp(e) {
         const step = totalSpan / (count - 1);
         const startAngle = totalSpan / 2;
 
-        // 計算當前「浮點數」頁碼 (例如現在翻到第 1.4 頁)
+        // 計算目前稍微被拖動後的「浮點數頁碼」 (例如 1.2 頁)
         let rawIndex = (startAngle - targetAngle) / step;
         let snapIndex;
 
-        // [新增] 慣性判斷 (Throw Logic)
-        // velocity < -5 代表快速向左滑 (想翻下一頁)
-        // velocity > 5 代表快速向右滑 (想翻上一頁)
-        if (velocity < -5) {
-            snapIndex = Math.floor(rawIndex) + 1; // 強制進位到下一頁
-        } else if (velocity > 5) {
-            snapIndex = Math.ceil(rawIndex) - 1;  // 強制退位到上一頁
+        // [關鍵邏輯]
+        // 只要拖曳超過 20px (很短的距離)，就強制進位或退位
+        // 這樣就不需要滑過半個螢幕才能翻頁了
+        
+        if (totalMoveX < -20) {
+            // 往左滑 (想看下一頁) -> 無條件進位
+            snapIndex = Math.ceil(rawIndex);
+            
+            // 如果原本就在整數頁(例如剛開始拖)，ceil 沒變，則強制 +1
+            // 這裡使用一個小技巧：如果滑動很少導致 rawIndex 還沒超過整數，我們手動加
+            if (snapIndex === Math.round(rawIndex - 0.1)) { 
+                 snapIndex += 1;
+            }
+            
+        } else if (totalMoveX > 20) {
+            // 往右滑 (想看上一頁) -> 無條件捨去
+            snapIndex = Math.floor(rawIndex);
+            
+            if (snapIndex === Math.round(rawIndex + 0.1)) {
+                snapIndex -= 1;
+            }
+            
         } else {
-            snapIndex = Math.round(rawIndex);     // 速度慢時，就找最近的一頁
+            // 滑動太小，停留在原地
+            snapIndex = Math.round(rawIndex);
         }
 
-        // 邊界限制
+        // 防止翻超過第一頁或最後一頁
         if (snapIndex < 0) snapIndex = 0;
         if (snapIndex >= count) snapIndex = count - 1;
 
+        // 計算對齊後的目標角度
         const snapTargetAngle = -(snapIndex * step - startAngle);
 
         targetAngle = snapTargetAngle;
-        velocity = 0; // 歸零速度，讓它停在目標頁
+        velocity = 0; // 停止慣性，直接鎖定到位
     }
 }
-
 function handlePageClick(page, e) {
     let index = parseFloat(page.dataset.index);
     let project = projectsData[index];
