@@ -176,9 +176,7 @@ function render3DBook() {
     document.addEventListener('pointercancel', handlePointerUp);
 }
 
-// ===============================================
-// 書籍互動邏輯
-// ===============================================
+
 // ===============================================
 // 書籍互動邏輯 (修改版)
 // ===============================================
@@ -260,13 +258,47 @@ function handlePointerUp(e) {
 
     const dist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
 
+    // 1. 如果是點擊 (位移很小)，則執行點擊事件，不進行吸附計算
     if (dist < clickThreshold) {
         velocity = 0; 
         if (activePageElement) {
             handlePageClick(activePageElement, e);
         }
+        activePageElement = null;
+        return; 
     }
+    
     activePageElement = null;
+
+    // ===============================================
+    // [新增] 手機版翻頁優化：自動吸附 (Snap Logic)
+    // ===============================================
+    // 只有在手機版 (<=768px) 且書本打開時才啟用
+    if (window.innerWidth <= 768 && isBookOpen) {
+        const count = projectsData.length;
+        // 這些數值必須與 render3DBook 中的設定一致
+        const totalSpan = 80; 
+        const step = totalSpan / (count - 1);
+        const startAngle = totalSpan / 2;
+
+        // 反推當前最接近哪一頁的 Index
+        // 公式原理：目標角度 ≈ -(頁面角度 - 起始角度)
+        // 所以：index ≈ (起始角度 - 目標角度) / 每頁間隔
+        let rawIndex = (startAngle - targetAngle) / step;
+        let snapIndex = Math.round(rawIndex);
+
+        // 邊界限制：防止滑超過第一頁或最後一頁
+        if (snapIndex < 0) snapIndex = 0;
+        if (snapIndex >= count) snapIndex = count - 1;
+
+        // 計算該頁面「正對鏡頭」時的目標角度
+        const snapTargetAngle = -(snapIndex * step - startAngle);
+
+        // [關鍵] 強制設定目標角度，並將慣性速度歸零
+        // 這樣畫面就會乖乖地停在該頁面，不會再亂滑
+        targetAngle = snapTargetAngle;
+        velocity = 0; 
+    }
 }
 
 function handlePageClick(page, e) {
