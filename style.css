@@ -438,7 +438,7 @@ body, html {
         /* [關鍵修正] translateX(0px)：
            取消偏移，讓書背回到螢幕正中央。
            這樣書本展開時，左右兩邊都會在畫面內，不會被切掉。 */
-        transform: rotateX(10deg) translateY(0) scale(0.9) translateX(0px) !important;
+        transform: rotateX(10deg) translateY(0) scale(0.9) translateX(-50px) !important;
         transition: none !important; 
     }
 
