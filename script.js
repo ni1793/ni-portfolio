@@ -257,10 +257,12 @@ function handlePointerUp(e) {
     document.querySelector('.scene').style.cursor = 'grab';
 
     const dist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
-    const totalMoveX = e.clientX - downX; // 計算總水平位移
 
-    // 1. 如果幾乎沒動 (小於 10px)，視為「點擊」
-    if (dist < 10) {
+    // [修改] 提高「點擊」的判定範圍
+    // 原本是 dist < 10 或 15，現在改為 30
+    // 意思是：就算你的手抖了一下，滑動了 30px 以內，程式都算你是「點擊」而不是「拖曳」
+    // 這樣就絕對不會觸發那個「滑不夠遠彈回去」的討厭效果了
+    if (dist < 30) { 
         velocity = 0; 
         if (activePageElement) {
             handlePageClick(activePageElement, e);
@@ -271,55 +273,35 @@ function handlePointerUp(e) {
     
     activePageElement = null;
 
-    // ===============================================
-    // [最終優化版] 手機版翻頁：直覺式強制翻頁
-    // ===============================================
+    // 以下是「真的用力滑動」時的保留邏輯 (您可以保留著，作為輔助)
     if (window.innerWidth <= 768 && isBookOpen) {
         const count = projectsData.length;
         const totalSpan = 80; 
         const step = totalSpan / (count - 1);
         const startAngle = totalSpan / 2;
 
-        // 計算目前稍微被拖動後的「浮點數頁碼」 (例如 1.2 頁)
         let rawIndex = (startAngle - targetAngle) / step;
         let snapIndex;
 
-        // [關鍵邏輯]
-        // 只要拖曳超過 20px (很短的距離)，就強制進位或退位
-        // 這樣就不需要滑過半個螢幕才能翻頁了
-        
-        if (totalMoveX < -20) {
-            // 往左滑 (想看下一頁) -> 無條件進位
+        const totalMoveX = e.clientX - downX;
+
+        // 依然保留「滑動超過 30px 就換頁」的直覺操作，但因為上面把點擊範圍加大了，
+        // 這裡只會在你「明確想滑動」時才觸發。
+        if (totalMoveX < -30) {
             snapIndex = Math.ceil(rawIndex);
-            
-            // 如果原本就在整數頁(例如剛開始拖)，ceil 沒變，則強制 +1
-            // 這裡使用一個小技巧：如果滑動很少導致 rawIndex 還沒超過整數，我們手動加
-            if (snapIndex === Math.round(rawIndex - 0.1)) { 
-                 snapIndex += 1;
-            }
-            
-        } else if (totalMoveX > 20) {
-            // 往右滑 (想看上一頁) -> 無條件捨去
+            if (snapIndex === Math.round(rawIndex - 0.1)) snapIndex += 1;
+        } else if (totalMoveX > 30) {
             snapIndex = Math.floor(rawIndex);
-            
-            if (snapIndex === Math.round(rawIndex + 0.1)) {
-                snapIndex -= 1;
-            }
-            
+            if (snapIndex === Math.round(rawIndex + 0.1)) snapIndex -= 1;
         } else {
-            // 滑動太小，停留在原地
             snapIndex = Math.round(rawIndex);
         }
 
-        // 防止翻超過第一頁或最後一頁
         if (snapIndex < 0) snapIndex = 0;
         if (snapIndex >= count) snapIndex = count - 1;
 
-        // 計算對齊後的目標角度
-        const snapTargetAngle = -(snapIndex * step - startAngle);
-
-        targetAngle = snapTargetAngle;
-        velocity = 0; // 停止慣性，直接鎖定到位
+        targetAngle = -(snapIndex * step - startAngle);
+        velocity = 0;
     }
 }
 function handlePageClick(page, e) {
@@ -338,14 +320,41 @@ function handlePageClick(page, e) {
         closeBook();
     } 
     else {
-        if(e) createStarExplosion(e.clientX, e.clientY);
+        // [修改] 兩階段點擊邏輯：點一下置中，再點一下打開
         
-        setTimeout(() => {
-            openProjectDetail(project.id);
-        }, 100);
+        // 1. 取得全域變數 (需與 render3DBook 中的設定一致)
+        const count = projectsData.length;
+        const totalSpan = 80; 
+        const step = totalSpan / (count - 1);
+        const startAngle = totalSpan / 2;
+        
+        // 2. 計算這張卡片本身的原始角度
+        const pageBaseAngle = (index * step) - startAngle;
+        
+        // 3. 計算要讓這張卡片「正對鏡頭」時，書本應該旋轉到的角度
+        // (原理：書本角度 + 卡片角度 = 0，所以 目標書本角度 = -卡片角度)
+        const targetForThisPage = -pageBaseAngle;
+
+        // 4. 判斷：現在書本是否已經面向這張卡片？
+        // 我們允許 2 度的微小誤差，只要在範圍內就算「已選中」
+        if (Math.abs(targetAngle - targetForThisPage) < 2) {
+            
+            // [情況 A] 已經是正對的 -> 視為「第二次點擊」 -> 打開詳情
+            if(e) createStarExplosion(e.clientX, e.clientY);
+            setTimeout(() => {
+                openProjectDetail(project.id);
+            }, 100);
+            
+        } else {
+            
+            // [情況 B] 還是歪的 -> 視為「第一次點擊」 -> 轉過去
+            targetAngle = targetForThisPage;
+            
+            // [重要] 強制歸零慣性速度，避免轉過去後又因為手滑而亂飄
+            velocity = 0;
+        }
     }
 }
-
 // --- 動畫迴圈 ---
 function updateCarousel() {
     const container = document.getElementById('book-spine');
