@@ -77,17 +77,34 @@ let currentAngle = 0;
 let targetAngle = 0;
 let isBookOpen = false;
 let hoveredIndex = -1;
-let currentIndex = 0;
+
+// [新增] 專門用來追蹤手機版目前翻到第幾頁 (0 = 封面)
+let currentIndex = 0; 
 
 // 物理拖曳
 let isDragging = false;
 let startX = 0;
 let lastX = 0;
 let velocity = 0;
-let clickThreshold = 15;
+let clickThreshold = 10; // 點擊判定更加寬鬆
 let downX = 0;
 let downY = 0;
 let activePageElement = null; 
+
+// [新增] 統一計算角度的工具：直接把書轉到 currentIndex 那一頁
+function updateTargetAngleByIndex() {
+    const count = projectsData.length;
+    const totalSpan = 80; // 必須與 render3DBook 裡的設定一致
+    const step = totalSpan / (count - 1);
+    const startAngle = totalSpan / 2;
+
+    // 公式：目標角度 = -(當前頁索引 * 每頁間隔 - 起始偏移)
+    // 這會算出該頁面「正對鏡頭」時，書本需要的旋轉角度
+    const exactAngle = -(currentIndex * step - startAngle);
+    
+    targetAngle = exactAngle;
+    velocity = 0; // 歸零慣性，確保死死停在中間
+}
 
 // ===============================================
 // 渲染書籍 (Render Book)
@@ -179,7 +196,7 @@ function render3DBook() {
 
 
 // ===============================================
-// 書籍互動邏輯 (修改版)
+// 書籍互動邏輯 (修正版)
 // ===============================================
 function openBook() {
     isBookOpen = true;
@@ -189,11 +206,14 @@ function openBook() {
     // 手機版：進入閱讀模式
     if (window.innerWidth <= 768) {
         document.body.classList.add('reading-mode');
-        // [關鍵] 打開時，強制設定為第 1 頁 (索引 0，也就是封面)
+        
+        // [關鍵修正] 打開時，強制設定為第 0 頁 (封面)，並立刻轉過去
+        // 這樣就不會出現「背對」或角度奇怪的問題了
         currentIndex = 0;
-        updateTargetAngleByIndex(); // 呼叫更新角度的函式
+        updateTargetAngleByIndex(); 
+
     } else {
-        // 電腦版角度
+        // 電腦版維持原本的微微傾斜角度
         targetAngle = 15; 
     }
 
@@ -218,7 +238,7 @@ function closeBook() {
         page.style.transform = `rotateY(0deg) translateZ(${-index}px)`;
     });
     
-    // [關鍵修正] 關閉時，強制歸零所有角度，確保回到原本封面的樣子
+    // [關鍵] 關閉時徹底歸零，確保下次打開時封面是正的
     targetAngle = 0;
     currentAngle = 0;
     currentIndex = 0; 
@@ -292,27 +312,63 @@ function handlePointerUp(e) {
     activePageElement = null;
 
     // ===============================================
-    // [最終版] 手機版翻頁：卡片切換邏輯 (Card Switch)
+    // [最終極速版] 手機版翻頁：超靈敏卡片切換
     // ===============================================
     if (window.innerWidth <= 768 && isBookOpen) {
         
-        // 設定觸發滑動的門檻 (例如滑動超過 30px 就算換頁)
-        const swipeThreshold = 30;
+        // [關鍵] 設定極低的滑動門檻 (15px)
+        // 只要手指稍微動一下，就判定為換頁
+        const swipeThreshold = 15;
 
         if (totalMoveX < -swipeThreshold) {
-            // 往左滑 -> 下一張
+            // 往左滑 (手指往左，想看右邊下一張) -> 下一頁
             if (currentIndex < projectsData.length - 1) {
                 currentIndex++;
             }
         } else if (totalMoveX > swipeThreshold) {
-            // 往右滑 -> 上一張
+            // 往右滑 (手指往右，想看左邊上一張) -> 上一頁
             if (currentIndex > 0) {
                 currentIndex--;
             }
         }
-        // 如果滑動距離不夠，currentIndex 不變 (自動回彈歸位)
+        // 如果滑動距離太短，index 不變 (自動吸附回原位)
 
-        // 執行更新角度
+        // 執行切換 (啪！轉過去)
+        updateTargetAngleByIndex();
+    }
+}
+
+function handlePageClick(page, e) {
+    let index = parseFloat(page.dataset.index);
+    let project = projectsData[index];
+
+    if (!isBookOpen) {
+        openBook();
+        return;
+    }
+
+    if (project.isCover) {
+        return;
+    }
+    else if (project.isBackCover) {
+        closeBook();
+        return;
+    } 
+    
+    // ===============================================
+    // 點擊互動邏輯
+    // ===============================================
+    
+    // 判斷：點擊的是不是「目前正中間」那一頁？
+    if (index === currentIndex) {
+        // 是 -> 打開詳情
+        if(e) createStarExplosion(e.clientX, e.clientY);
+        setTimeout(() => {
+            openProjectDetail(project.id);
+        }, 100);
+    } else {
+        // 否 (點到旁邊的卡片) -> 切換到那一頁
+        currentIndex = index;
         updateTargetAngleByIndex();
     }
 }
