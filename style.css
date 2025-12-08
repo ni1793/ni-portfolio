@@ -642,3 +642,22 @@ z-index: 30000 !important;
     body.reading-mode .book-page {
          box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
     }
+
+/* ===============================================
+   [最終層級修正] 強制讓彈跳視窗浮在最上層
+   =============================================== */
+
+/* 1. 彈跳視窗 (Project Modal & Contact Modal) */
+/* 設定為 80000，確保比書籍(10000)和遮罩(9000)都高 */
+.modal-overlay {
+    z-index: 80000 !important;
+}
+
+/* 2. 燈箱圖片 (Lightbox) */
+/* 設定為 90000，確保是全網站最高 */
+.lightbox-overlay {
+    z-index: 90000 !important;
+}
+
+/* 3. 確保書籍在閱讀模式時，雖然比遮罩高，但比彈跳視窗低 */
+/* (這部分保持原本的 10000 即可，不需要動) */
