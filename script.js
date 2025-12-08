@@ -179,16 +179,27 @@ function render3DBook() {
 // ===============================================
 // 書籍互動邏輯
 // ===============================================
+// ===============================================
+// 書籍互動邏輯 (修改版)
+// ===============================================
 function openBook() {
     isBookOpen = true;
     document.body.classList.add('is-book-open'); 
     document.getElementById('book-spine').classList.add('is-open');
     
+    // [新增] 如果是手機版，進入「專注閱讀模式」
+    if (window.innerWidth <= 768) {
+        document.body.classList.add('reading-mode');
+    }
+
     const bubble = document.getElementById('cursor-bubble');
     if(bubble) bubble.classList.remove('active');
 
     const pages = document.querySelectorAll('.book-page');
-    targetAngle = 15; 
+    
+    // 手機版打開時角度稍微小一點，比較好讀
+    targetAngle = window.innerWidth <= 768 ? 10 : 15; 
+    
     pages.forEach(page => page.classList.remove('closed'));
 }
 
@@ -196,6 +207,10 @@ function closeBook() {
     isBookOpen = false;
     document.body.classList.remove('is-book-open');
     document.getElementById('book-spine').classList.remove('is-open');
+    
+    // [新增] 解除「專注閱讀模式」
+    document.body.classList.remove('reading-mode');
+
     const pages = document.querySelectorAll('.book-page');
     pages.forEach((page, index) => {
         page.classList.add('closed');
@@ -229,11 +244,15 @@ function handlePointerMove(e) {
     lastX = e.clientX;
 
     if (isBookOpen) {
-        targetAngle += deltaX * 0.4; 
-        velocity = deltaX * 0.4; 
+        // [修改] 手機版增加靈敏度
+        // 如果螢幕小於 768px (手機)，速度乘數改為 1.2 (原本是 0.4，太慢了)
+        // 電腦版維持 0.4
+        const sensitivity = window.innerWidth <= 768 ? 1.2 : 0.4;
+        
+        targetAngle += deltaX * sensitivity; 
+        velocity = deltaX * sensitivity; 
     }
 }
-
 function handlePointerUp(e) {
     if (!isDragging) return;
     isDragging = false;
@@ -396,6 +415,8 @@ function updateClock() {
         dateEl.innerText = now.toLocaleDateString('en-US', options);
     }
 }
+updateClock();
+
 setInterval(updateClock, 1000);
 
 function unlockScreen() {
@@ -647,7 +668,7 @@ initCustomCursor();
 loopCursor();
 
 // ===============================================
-// 手機版：攝影作品飛入特效 (縮小 + 更分散版)
+// 手機版：攝影作品預覽 (垂直堆疊 + 微幅錯位)
 // ===============================================
 function initMobilePhotoPreview() {
     if (window.innerWidth > 768) return; 
@@ -656,29 +677,27 @@ function initMobilePhotoPreview() {
     const viewMoreBtn = document.getElementById('view-more-btn');
     if (!container || !viewMoreBtn) return;
 
-    // 清空舊的內容 (防止重複執行時堆疊)
-    // 注意：這裡我們只移除 .photo-wrapper，保留按鈕
+    // 清空舊內容
     const oldWrappers = container.querySelectorAll('.photo-wrapper');
     oldWrappers.forEach(el => el.remove());
 
     const previewImages = photographyData.slice(0, 3);
     
-    [...previewImages].reverse().forEach((src, index) => {
+    // 這裡改回正常順序插入，因為 relative 排列會從上往下
+    previewImages.forEach((src, index) => {
         const wrapper = document.createElement('div');
         wrapper.className = 'photo-wrapper';
         
-        // [修改] 大幅增加分散範圍，確保照片分開
-        const randomRot = (Math.random() * 40 - 20) + 'deg'; // 旋轉角度加大 (-20 ~ 20)
-        
-        // X軸分散：-100px ~ 100px (範圍變大，讓照片可以飛到更左右兩邊)
-        const randomX = (Math.random() * 200 - 100) + 'px';   
-        
-        // Y軸分散：-120px ~ 120px (範圍變大，拉開上下距離)
-        const randomY = (Math.random() * 240 - 120) + 'px';   
+        // [修改] 亂數範圍縮小，只做微調
+        const randomRot = (Math.random() * 10 - 5) + 'deg'; // 旋轉 -5 ~ 5 度
+        const randomX = (Math.random() * 40 - 20) + 'px';   // 左右微調 -20 ~ 20px
+        const randomY = (Math.random() * 20 - 10) + 'px';   // 上下微調 -10 ~ 10px
+        const delay = Math.random() * 2; // 隨機動畫延遲
         
         wrapper.style.setProperty('--r', randomRot);
         wrapper.style.setProperty('--x', randomX);
         wrapper.style.setProperty('--y', randomY);
+        wrapper.style.setProperty('--delay', delay);
 
         const img = document.createElement('img');
         img.src = src;
@@ -689,7 +708,8 @@ function initMobilePhotoPreview() {
         wrapper.appendChild(pin);
         wrapper.appendChild(img);
         
-        container.insertBefore(wrapper, container.firstChild); 
+        // 插入到按鈕之前
+        container.insertBefore(wrapper, viewMoreBtn); 
     });
 
     // 飛入動畫偵測
@@ -710,12 +730,12 @@ function initMobilePhotoPreview() {
                 observer.unobserve(entry.target);
             }
         });
-    }, { threshold: 0.2 });
+    }, { threshold: 0.1 });
 
     const section = document.getElementById('mobile-photo-preview');
     if (section) observer.observe(section);
 
-    // 滾動偵測氣泡
+    // 氣泡滾動消失邏輯保持不變
     window.addEventListener('scroll', () => {
         const bubble = document.getElementById('cursor-bubble');
         if (!bubble) return;

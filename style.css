@@ -165,6 +165,16 @@ body, html {
 #particle-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; }
 .login-content { position: relative; z-index: 2; text-align: center; pointer-events: auto; }
 
+/* [修改] 時間區塊：增加 Flex 置中設定 */
+.date-time {
+    display: flex;
+    flex-direction: column;
+    align-items: center; /* 水平置中關鍵 */
+    justify-content: center;
+    width: 100%; /* 確保佔滿寬度 */
+    text-align: center; /* 雙重保險 */
+}
+
 .date-time h1 { font-size: 80px; font-weight: 100; margin: 0; letter-spacing: 5px; }
 .date-time p { font-size: 14px; letter-spacing: 3px; color: #aaa; margin-top: 10px; }
 
@@ -359,35 +369,107 @@ body, html {
         z-index: 20;
     }
 
+/* [修改] 容器改為自然高度，允許內容撐開 */
     .preview-container {
         perspective: 1000px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        gap: 0px; /* 照片重疊在一起，不需要 gap */
+        justify-content: flex-start; /* 從頂部開始排列 */
+        padding-top: 50px; /* 留一點頂部空間 */
         position: relative;
-        height: 100%;
+        height: auto; /* 高度自動 */
         overflow: visible; 
     }
-/* [修改] 立可拍外框容器 */
+
+    /* [修改] 照片改為相對定位，讓它們自然垂直排列 */
     .photo-wrapper {
-        position: absolute;
-        /* 寬度從 65% 改為 55% (變小) */
-        width: 55%; 
-        /* 最大寬度從 280px 改為 220px (變小) */
-        max-width: 220px; 
+        position: relative; /* 改回 relative */
+        width: 60%; 
+        max-width: 240px; 
         height: auto;
         
         background-color: #fff;
         padding: 12px 12px 50px 12px; 
         box-shadow: 0 10px 25px rgba(0,0,0,0.15);
         
+        /* [關鍵] 設定負的 margin-top，讓下一張照片會稍微蓋住上一張的底部，但整體是往下排的 */
+        margin-top: -80px; 
+        
         opacity: 0;
-        transition: transform 2.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 1.5s ease;
+        transition: transform 1.5s cubic-bezier(0.2, 0.8, 0.2, 1), opacity 1s ease;
         will-change: transform, opacity;
         
         transform-origin: center 20px; 
+    }
+
+    /* 第一張照片不需要往上疊 */
+    .photo-wrapper:first-child {
+        margin-top: 0;
+    }
+
+    /* 內層照片 */
+    .photo-wrapper img {
+        width: 100%;
+        height: auto;
+        display: block;
+        filter: sepia(10%);
+    }
+
+    /* 圖釘樣式保持不變 */
+    .pin {
+        position: absolute;
+        top: -8px; 
+        left: 50%;
+        transform: translateX(-50%);
+        width: 14px;
+        height: 14px;
+        border-radius: 50%;
+        background: radial-gradient(circle at 30% 30%, #f0f0f0, #bdc3c7, #7f8c8d);
+        box-shadow: 2px 3px 5px rgba(0,0,0,0.3), inset 1px 1px 1px rgba(255,255,255,0.8);
+        z-index: 10;
+    }
+
+    /* 飛入方向設定 (保持左右交錯感) */
+    .photo-wrapper:nth-child(even) {
+        /* 初始位置在右下方 */
+        transform: translate3d(100px, 100px, 0) rotate(20deg) scale(0.8);
+    }
+    .photo-wrapper:nth-child(odd) {
+        /* 初始位置在左下方 */
+        transform: translate3d(-100px, 100px, 0) rotate(-20deg) scale(0.8);
+    }
+
+    /* [修改] 飛入後的狀態：因為現在是 relative 定位，所以 translate 改為小幅度的隨機微調即可 */
+    .photo-wrapper.visible {
+        opacity: 1;
+        /* var(--x), var(--y) 現在只負責微調位置，不會影響整體垂直排列 */
+        transform: translate3d(var(--x), var(--y), 0) rotate(var(--r)) scale(1) !important;
+    }
+
+    /* 漂浮動畫 */
+    .photo-wrapper.visible {
+        animation: floatingPolaroid 5s ease-in-out infinite alternate;
+        /* 隨機延遲，讓漂浮不同步 */
+        animation-delay: calc(var(--delay) * 1s);
+    }
+    
+/* [修改] 按鈕位置：大幅縮小上方的空白 */
+    .view-more-btn {
+        position: relative;
+        margin-top: 10px; /* 從 80px 改為 20px，拉近距離 */
+        
+        padding: 8px 24px;
+        border: 1px solid #000;
+        background: transparent;
+        color: #000;
+        font-size: 11px;
+        letter-spacing: 2px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s;
+        opacity: 0;
+        transform: translateY(20px);
     }
 
     /* 內層照片 */
@@ -460,7 +542,7 @@ body, html {
     .view-more-btn {
         /* 因為照片改為 absolute，按鈕需要 margin-top 來推開距離，或者直接定位在底部 */
         position: relative;
-        margin-top: 500px; /* 確保按鈕在照片堆下方 */
+        margin-top: 90px; /* 確保按鈕在照片堆下方 */
         
         padding: 8px 24px; /* 縮小內距 */
         border: 1px solid #000;
@@ -484,4 +566,66 @@ body, html {
     .view-more-btn:active {
         background: #000;
         color: #fff;
+    }/* ... 這是手機版區域原本的最後面 ... */
+
+ /* =========================================
+       [最終修正版] 手機版專注閱讀模式 (Reading Mode)
+       ========================================= */
+    
+    body.reading-mode {
+        overflow: hidden !important; /* 鎖定網頁 */
+        touch-action: none; 
+    }
+
+    /* 隱藏其他干擾元素 */
+    body.reading-mode .text-nav,
+    body.reading-mode #mobile-scroll-indicator,
+    body.reading-mode .site-intro,
+    body.reading-mode #cursor-bubble {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.3s;
+    }
+
+    /* [修正 1] 提升 Scene 的層級，確保書本一定在遮罩上面 */
+    body.reading-mode .scene {
+        position: relative;
+        z-index: 10000 !important; /* 關鍵：比遮罩高 */
+    }
+
+    /* [修正 2] 調整書本位置與大小 */
+    body.reading-mode .spine-wrapper {
+        /* translateX(-20px): 從原本的 -100 改回來，稍微偏左一點點即可，讓展開後的書本視覺置中
+           scale(0.95): 稍微縮小一點點，避免大螢幕手機邊緣被切掉
+        */
+        transform: rotateX(10deg) translateY(0) scale(0.95) translateX(-20px) !important;
+        
+        /* 關閉動畫以確保拖曳跟手 */
+        transition: none !important; 
+    }
+
+/* [修改] 遮罩改為灰色透明 */
+    body.reading-mode::before {
+        content: '';
+        position: fixed;
+        top: 0; left: 0;
+        width: 100%; height: 100%;
+        
+        /* 灰色 (100, 100, 100) + 透明度 0.9 */
+        background: rgba(0, 0, 0, 0.6); 
+        
+        z-index: 9000; 
+        animation: fadeIn 0.5s ease;
+        pointer-events: none; 
+        backdrop-filter: blur(2px); /* 稍微模糊背景 */
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+    
+    /* 閱讀模式下，增加書頁的陰影，讓立體感更強 */
+    body.reading-mode .book-page {
+         box-shadow: 0 10px 40px rgba(0,0,0,0.5) !important;
     }
