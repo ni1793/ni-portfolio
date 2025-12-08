@@ -77,6 +77,7 @@ let currentAngle = 0;
 let targetAngle = 0;
 let isBookOpen = false;
 let hoveredIndex = -1;
+let currentIndex = 0;
 
 // 物理拖曳
 let isDragging = false;
@@ -185,19 +186,21 @@ function openBook() {
     document.body.classList.add('is-book-open'); 
     document.getElementById('book-spine').classList.add('is-open');
     
-    // [新增] 如果是手機版，進入「專注閱讀模式」
+    // 手機版：進入閱讀模式
     if (window.innerWidth <= 768) {
         document.body.classList.add('reading-mode');
+        // [關鍵] 打開時，強制設定為第 1 頁 (索引 0，也就是封面)
+        currentIndex = 0;
+        updateTargetAngleByIndex(); // 呼叫更新角度的函式
+    } else {
+        // 電腦版角度
+        targetAngle = 15; 
     }
 
     const bubble = document.getElementById('cursor-bubble');
     if(bubble) bubble.classList.remove('active');
 
     const pages = document.querySelectorAll('.book-page');
-    
-    // 手機版打開時角度稍微小一點，比較好讀
-    targetAngle = window.innerWidth <= 768 ? 10 : 15; 
-    
     pages.forEach(page => page.classList.remove('closed'));
 }
 
@@ -206,7 +209,7 @@ function closeBook() {
     document.body.classList.remove('is-book-open');
     document.getElementById('book-spine').classList.remove('is-open');
     
-    // [新增] 解除「專注閱讀模式」
+    // 解除閱讀模式
     document.body.classList.remove('reading-mode');
 
     const pages = document.querySelectorAll('.book-page');
@@ -214,8 +217,25 @@ function closeBook() {
         page.classList.add('closed');
         page.style.transform = `rotateY(0deg) translateZ(${-index}px)`;
     });
+    
+    // [關鍵修正] 關閉時，強制歸零所有角度，確保回到原本封面的樣子
     targetAngle = 0;
     currentAngle = 0;
+    currentIndex = 0; 
+}
+
+// [新增] 根據 currentIndex 計算書本該轉到的精準角度
+function updateTargetAngleByIndex() {
+    const count = projectsData.length;
+    const totalSpan = 80; 
+    const step = totalSpan / (count - 1);
+    const startAngle = totalSpan / 2;
+
+    // 公式：目標角度 = -(當前頁索引 * 每頁間隔 - 起始偏移)
+    const exactAngle = -(currentIndex * step - startAngle);
+    
+    targetAngle = exactAngle;
+    velocity = 0; // 歸零慣性，確保死死停在中間
 }
 
 // --- Pointer Events ---
@@ -257,12 +277,10 @@ function handlePointerUp(e) {
     document.querySelector('.scene').style.cursor = 'grab';
 
     const dist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
+    const totalMoveX = e.clientX - downX; // 水平位移量
 
-    // [修改] 提高「點擊」的判定範圍
-    // 原本是 dist < 10 或 15，現在改為 30
-    // 意思是：就算你的手抖了一下，滑動了 30px 以內，程式都算你是「點擊」而不是「拖曳」
-    // 這樣就絕對不會觸發那個「滑不夠遠彈回去」的討厭效果了
-    if (dist < 30) { 
+    // 1. 如果幾乎沒動 (小於 10px)，視為「點擊」
+    if (dist < 10) { 
         velocity = 0; 
         if (activePageElement) {
             handlePageClick(activePageElement, e);
@@ -273,35 +291,29 @@ function handlePointerUp(e) {
     
     activePageElement = null;
 
-    // 以下是「真的用力滑動」時的保留邏輯 (您可以保留著，作為輔助)
+    // ===============================================
+    // [最終版] 手機版翻頁：卡片切換邏輯 (Card Switch)
+    // ===============================================
     if (window.innerWidth <= 768 && isBookOpen) {
-        const count = projectsData.length;
-        const totalSpan = 80; 
-        const step = totalSpan / (count - 1);
-        const startAngle = totalSpan / 2;
+        
+        // 設定觸發滑動的門檻 (例如滑動超過 30px 就算換頁)
+        const swipeThreshold = 30;
 
-        let rawIndex = (startAngle - targetAngle) / step;
-        let snapIndex;
-
-        const totalMoveX = e.clientX - downX;
-
-        // 依然保留「滑動超過 30px 就換頁」的直覺操作，但因為上面把點擊範圍加大了，
-        // 這裡只會在你「明確想滑動」時才觸發。
-        if (totalMoveX < -30) {
-            snapIndex = Math.ceil(rawIndex);
-            if (snapIndex === Math.round(rawIndex - 0.1)) snapIndex += 1;
-        } else if (totalMoveX > 30) {
-            snapIndex = Math.floor(rawIndex);
-            if (snapIndex === Math.round(rawIndex + 0.1)) snapIndex -= 1;
-        } else {
-            snapIndex = Math.round(rawIndex);
+        if (totalMoveX < -swipeThreshold) {
+            // 往左滑 -> 下一張
+            if (currentIndex < projectsData.length - 1) {
+                currentIndex++;
+            }
+        } else if (totalMoveX > swipeThreshold) {
+            // 往右滑 -> 上一張
+            if (currentIndex > 0) {
+                currentIndex--;
+            }
         }
+        // 如果滑動距離不夠，currentIndex 不變 (自動回彈歸位)
 
-        if (snapIndex < 0) snapIndex = 0;
-        if (snapIndex >= count) snapIndex = count - 1;
-
-        targetAngle = -(snapIndex * step - startAngle);
-        velocity = 0;
+        // 執行更新角度
+        updateTargetAngleByIndex();
     }
 }
 
@@ -309,13 +321,11 @@ function handlePageClick(page, e) {
     let index = parseFloat(page.dataset.index);
     let project = projectsData[index];
 
-    // 1. 如果書還沒開，先開書
     if (!isBookOpen) {
         openBook();
         return;
     }
 
-    // 排除封面封底
     if (project.isCover) {
         return;
     }
@@ -325,43 +335,23 @@ function handlePageClick(page, e) {
     } 
     
     // ===============================================
-    // [精準版] 兩段式互動邏輯
+    // [最終版] 點擊互動
     // ===============================================
     
-    // 取得基礎參數
-    const count = projectsData.length;
-    const totalSpan = 80; 
-    const step = totalSpan / (count - 1);
-    const startAngle = totalSpan / 2;
-    
-    // 計算這張卡片「正對鏡頭」時，書本應該是多少角度
-    // 公式：目標書本角度 = -1 * (卡片自己的角度)
-    const pageAngle = (index * step) - startAngle;
-    const targetForThisPage = -pageAngle;
-
-    // [核心判斷]
-    // 我們比對「目前的目標角度 (targetAngle)」是否已經鎖定在這張卡片上
-    // 使用極小的誤差範圍 (0.5度) 來確保精準
-    const isSelected = Math.abs(targetAngle - targetForThisPage) < 0.5;
-
-    if (isSelected) {
-        // [情況 A] 已經選取了 (Target 已經是對的) -> 這是第二次點擊 -> 打開詳情
+    // 判斷：點擊的是不是「目前正中間」那一頁？
+    if (index === currentIndex) {
+        // 是 -> 打開詳情
         if(e) createStarExplosion(e.clientX, e.clientY);
-        
         setTimeout(() => {
             openProjectDetail(project.id);
         }, 100);
-        
     } else {
-        // [情況 B] 還沒選取 (Target 是別張卡，或是剛滑動完) -> 這是第一次點擊 -> 轉過來
-        
-        // 設定目標角度，讓書轉過來
-        targetAngle = targetForThisPage;
-        
-        // [重要] 強制把慣性速度歸零，確保它乖乖停在正中間，不會滑過頭
-        velocity = 0;
+        // 否 -> 切換到那一頁
+        currentIndex = index;
+        updateTargetAngleByIndex();
     }
 }
+
 // --- 動畫迴圈 ---
 function updateCarousel() {
     const container = document.getElementById('book-spine');
