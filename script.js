@@ -304,55 +304,62 @@ function handlePointerUp(e) {
         velocity = 0;
     }
 }
+
 function handlePageClick(page, e) {
     let index = parseFloat(page.dataset.index);
     let project = projectsData[index];
 
+    // 1. 如果書還沒開，先開書
     if (!isBookOpen) {
         openBook();
         return;
     }
 
+    // 排除封面封底
     if (project.isCover) {
         return;
     }
     else if (project.isBackCover) {
         closeBook();
+        return;
     } 
-    else {
-        // [修改] 兩階段點擊邏輯：點一下置中，再點一下打開
-        
-        // 1. 取得全域變數 (需與 render3DBook 中的設定一致)
-        const count = projectsData.length;
-        const totalSpan = 80; 
-        const step = totalSpan / (count - 1);
-        const startAngle = totalSpan / 2;
-        
-        // 2. 計算這張卡片本身的原始角度
-        const pageBaseAngle = (index * step) - startAngle;
-        
-        // 3. 計算要讓這張卡片「正對鏡頭」時，書本應該旋轉到的角度
-        // (原理：書本角度 + 卡片角度 = 0，所以 目標書本角度 = -卡片角度)
-        const targetForThisPage = -pageBaseAngle;
+    
+    // ===============================================
+    // [精準版] 兩段式互動邏輯
+    // ===============================================
+    
+    // 取得基礎參數
+    const count = projectsData.length;
+    const totalSpan = 80; 
+    const step = totalSpan / (count - 1);
+    const startAngle = totalSpan / 2;
+    
+    // 計算這張卡片「正對鏡頭」時，書本應該是多少角度
+    // 公式：目標書本角度 = -1 * (卡片自己的角度)
+    const pageAngle = (index * step) - startAngle;
+    const targetForThisPage = -pageAngle;
 
-        // 4. 判斷：現在書本是否已經面向這張卡片？
-        // 我們允許 2 度的微小誤差，只要在範圍內就算「已選中」
-        if (Math.abs(targetAngle - targetForThisPage) < 2) {
-            
-            // [情況 A] 已經是正對的 -> 視為「第二次點擊」 -> 打開詳情
-            if(e) createStarExplosion(e.clientX, e.clientY);
-            setTimeout(() => {
-                openProjectDetail(project.id);
-            }, 100);
-            
-        } else {
-            
-            // [情況 B] 還是歪的 -> 視為「第一次點擊」 -> 轉過去
-            targetAngle = targetForThisPage;
-            
-            // [重要] 強制歸零慣性速度，避免轉過去後又因為手滑而亂飄
-            velocity = 0;
-        }
+    // [核心判斷]
+    // 我們比對「目前的目標角度 (targetAngle)」是否已經鎖定在這張卡片上
+    // 使用極小的誤差範圍 (0.5度) 來確保精準
+    const isSelected = Math.abs(targetAngle - targetForThisPage) < 0.5;
+
+    if (isSelected) {
+        // [情況 A] 已經選取了 (Target 已經是對的) -> 這是第二次點擊 -> 打開詳情
+        if(e) createStarExplosion(e.clientX, e.clientY);
+        
+        setTimeout(() => {
+            openProjectDetail(project.id);
+        }, 100);
+        
+    } else {
+        // [情況 B] 還沒選取 (Target 是別張卡，或是剛滑動完) -> 這是第一次點擊 -> 轉過來
+        
+        // 設定目標角度，讓書轉過來
+        targetAngle = targetForThisPage;
+        
+        // [重要] 強制把慣性速度歸零，確保它乖乖停在正中間，不會滑過頭
+        velocity = 0;
     }
 }
 // --- 動畫迴圈 ---

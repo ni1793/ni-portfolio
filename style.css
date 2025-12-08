@@ -585,9 +585,19 @@ z-index: 30000 !important;
        [最終修正版] 手機版專注閱讀模式 (Reading Mode)
        ========================================= */
     
+/* =========================================
+       [最終鎖定版] 手機版專注閱讀模式 (Reading Mode)
+       ========================================= */
+    
     body.reading-mode {
-        overflow: hidden !important; /* 鎖定網頁 */
-        touch-action: none; 
+        /* [關鍵修改] 使用 fixed 定位強制凍結背景，防止任何滑動 */
+        position: fixed !important;
+        width: 100% !important;
+        height: 100% !important;
+        top: 0 !important;
+        left: 0 !important;
+        overflow: hidden !important;
+        touch-action: none; /* 禁止觸控慣性 */
     }
 
     /* 隱藏其他干擾元素 */
@@ -599,7 +609,6 @@ z-index: 30000 !important;
         pointer-events: none;
         transition: opacity 0.3s;
     }
-
     /* [修正 1] 提升 Scene 的層級，確保書本一定在遮罩上面 */
     body.reading-mode .scene {
         position: relative;
