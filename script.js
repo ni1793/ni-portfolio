@@ -33,7 +33,7 @@ const projects = [
         category: "展覽主視覺設計", 
         cover: "images/project4/01.jpg", 
         description: "Harmonic Silhouette", 
-        images: ["images/project4/01.jpg", "images/project4/02.jpg", "images/project4/03.jpg"] 
+        images: ["images/project4/01.jpg", "images/project4/02.jpg", "images/project4/03.jpg", "images/project4/04.jpg"] 
     },
     { 
         id: 5, 
@@ -76,6 +76,7 @@ const photographyData = ["images/album/01.jpg", "images/album/02.jpg", "images/a
 let currentAngle = 0;
 let targetAngle = 0;
 let isBookOpen = false;
+let hoveredIndex = -1;
 
 // 物理拖曳
 let isDragging = false;
@@ -96,7 +97,7 @@ function render3DBook() {
     container.innerHTML = ''; 
     
     const count = projectsData.length;
-    const totalSpan = 120; 
+    const totalSpan = 80; 
     const startAngle = totalSpan / 2; 
     const step = totalSpan / (count - 1);
 
@@ -156,7 +157,12 @@ function render3DBook() {
         let myAngle = (index * step) - startAngle;
         page.dataset.baseAngle = myAngle;
         page.dataset.index = index;
-
+        page.addEventListener('mouseenter', () => {
+            hoveredIndex = index;
+        });
+        page.addEventListener('mouseleave', () => {
+            hoveredIndex = -1;
+        });
         page.style.transform = `rotateY(0deg) translateZ(${-index * 0.2}px)`;
         page.onpointerdown = (e) => handlePointerDown(e, page);
 
@@ -299,12 +305,14 @@ function updateCarousel() {
         let spreadOffset = 0;
         let extraFlip = 0;
 
-        if (Math.abs(visualAngle) < 40) { 
-            let pushForce = 15; 
-            if (visualAngle > 0) spreadOffset = pushForce * (1 - visualAngle/40);
-            if (visualAngle < 0) spreadOffset = -pushForce * (1 + visualAngle/40);
+        if (hoveredIndex !== -1) {
+            if (index > hoveredIndex) {
+                spreadOffset = 60; 
+            }
+            else if (index < hoveredIndex) {
+                spreadOffset = -60;
+            }
         }
-
         if (visualAngle > 50) extraFlip = 15; 
         if (visualAngle < -50) extraFlip = -15;
 
@@ -333,7 +341,6 @@ function openProjectDetail(id) {
     const modal = document.getElementById('project-modal');
     document.getElementById('detail-title').innerText = project.title;
     
-    // 修改：這裡加入了 onclick="openLightbox(...)" 和 cursor: zoom-in
     const imagesHtml = project.images.map(img => 
         `<img src="${img}" onclick="openLightbox('${img}')" style="cursor: zoom-in;">`
     ).join('');
@@ -384,7 +391,6 @@ function updateClock() {
     
     if(timeEl) timeEl.innerText = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
     
-    // 更新日期
     if(dateEl) {
         const options = { weekday: 'long', month: 'long', day: 'numeric' };
         dateEl.innerText = now.toLocaleDateString('en-US', options);
@@ -397,6 +403,8 @@ function unlockScreen() {
     loginPage.classList.add('hidden'); 
     setTimeout(() => {
         render3DBook(); 
+        // 登入後，初始化手機版的滾動偵測
+        initMobilePhotoPreview();
     }, 100);
 }
 
@@ -414,7 +422,6 @@ function initParticleTunnel() {
     const loginPage = document.getElementById('login-page');
     if (!loginPage) return;
 
-    // 建立 Canvas
     let canvas = document.getElementById('particle-canvas');
     if (!canvas) {
         canvas = document.createElement('canvas');
@@ -426,16 +433,14 @@ function initParticleTunnel() {
     let width, height;
     let particles = [];
     
-    // 參數設定
-    const particleCount = 400; // 粒子數量
-    const speed = 2; // 隧道速度
-    const mouseRepelRadius = 150; // 滑鼠排斥半徑
-    const mouseRepelForce = 2;    // 滑鼠排斥力道
+    const particleCount = 400; 
+    const speed = 2; 
+    const mouseRepelRadius = 150; 
+    const mouseRepelForce = 2;   
 
     let mouseX = -1000;
     let mouseY = -1000;
 
-    // 調整大小
     function resize() {
         width = canvas.width = window.innerWidth;
         height = canvas.height = window.innerHeight;
@@ -443,7 +448,6 @@ function initParticleTunnel() {
     window.addEventListener('resize', resize);
     resize();
 
-    // 追蹤滑鼠
     document.addEventListener('mousemove', (e) => {
         if (!loginPage.classList.contains('hidden')) {
             mouseX = e.clientX;
@@ -451,54 +455,43 @@ function initParticleTunnel() {
         }
     });
 
-    // 粒子類別
     class Particle {
         constructor() {
             this.init();
         }
 
         init() {
-            // 隨機分布在畫面上的 x, y (範圍大一點，製造廣角感)
             this.x = (Math.random() - 0.5) * width * 2;
             this.y = (Math.random() - 0.5) * height * 2;
-            
-            // z 代表深度：從遠處 (z=width) 飛向螢幕 (z=0)
             this.z = Math.random() * width; 
-            
-            // 原始目標位置，用於滑鼠互動後的復原
             this.ox = this.x;
             this.oy = this.y;
         }
 
         update() {
-            // 1. 隧道移動：Z 軸減少 (靠近觀察者)
             this.z -= speed;
             if (this.z <= 0) {
-                this.init(); // 重置到遠處
+                this.init(); 
                 this.z = width;
             }
 
-            // 2. 投影計算 (3D -> 2D)
-            const perspective = 300; // 透視強度
-            const k = perspective / this.z; // 縮放比例
+            const perspective = 300; 
+            const k = perspective / this.z; 
             const px = width / 2 + this.x * k;
             const py = height / 2 + this.y * k;
 
-            // 3. 滑鼠排斥計算 (在 2D 投影平面上)
             const dx = px - mouseX;
             const dy = py - mouseY;
             const dist = Math.sqrt(dx * dx + dy * dy);
 
             if (dist < mouseRepelRadius) {
                 const angle = Math.atan2(dy, dx);
-                // 將 3D 空間中的 x, y 推開
                 this.x += Math.cos(angle) * mouseRepelForce * (this.z / perspective);
                 this.y += Math.sin(angle) * mouseRepelForce * (this.z / perspective);
             }
 
-            // 繪製
-            const size = (1 - this.z / width) * 3; // 越近越大
-            const alpha = (1 - this.z / width);    // 越近越亮
+            const size = (1 - this.z / width) * 3; 
+            const alpha = (1 - this.z / width);    
 
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
             ctx.beginPath();
@@ -507,16 +500,14 @@ function initParticleTunnel() {
         }
     }
 
-    // 初始化粒子
     for (let i = 0; i < particleCount; i++) {
         particles.push(new Particle());
     }
 
-    // 動畫迴圈
     function animate() {
-        if (loginPage.classList.contains('hidden')) return; // 登入後停止運算，節省效能
+        if (loginPage.classList.contains('hidden')) return; 
 
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; // 拖影效果
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; 
         ctx.fillRect(0, 0, width, height);
 
         particles.forEach(p => p.update());
@@ -526,7 +517,6 @@ function initParticleTunnel() {
     animate();
 }
 
-// 啟動粒子特效 (頁面載入後)
 window.addEventListener('load', initParticleTunnel);
 
 
@@ -553,10 +543,8 @@ function createStarExplosion(x, y) {
 }
 
 // ===============================================
-// 自定義游標 (紅色半透明 + 點擊縮放)
+// 自定義游標
 // ===============================================
-
-// 修改：初始位置設為螢幕中央，避免一開始座標是 -100 而看不到
 const cursorState = {
     x: window.innerWidth / 2, 
     y: window.innerHeight / 2, 
@@ -610,34 +598,24 @@ function loopCursor() {
         return;
     }
 
-    // 檢查登入頁是否還顯示著
     const isLoginOpen = loginPage && !loginPage.classList.contains('hidden');
 
-    // 緩動跟隨運算
     cursorState.bx += (cursorState.x - cursorState.bx) * 0.2;
     cursorState.by += (cursorState.y - cursorState.by) * 0.2;
 
     const isMobile = window.innerWidth <= 768;
 
-    // ------------------------------------
-    // 狀態 A: 登入頁開啟中 (Login Page)
-    // ------------------------------------
     if (isLoginOpen) {
-        // 確保氣泡隱藏
         bubble.classList.remove('active');
         bubble.classList.remove('active-mobile');
         
         if (isMobile) {
-             mainCursor.style.opacity = '0'; // 手機版不需要游標
+             mainCursor.style.opacity = '0'; 
         } else {
-             // 【電腦版】：強制顯示紅色游標，且位置設為最高層級
              mainCursor.style.opacity = '1'; 
              mainCursor.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) scale(${cursorScale})`;
         }
     }
-    // ------------------------------------
-    // 狀態 B: 手機版 (Mobile)
-    // ------------------------------------
     else if (isMobile) {
         if (!document.body.classList.contains('is-book-open')) {
             bubble.classList.add('active-mobile');
@@ -647,19 +625,14 @@ function loopCursor() {
         }
         mainCursor.style.opacity = '0';
     } 
-    // ------------------------------------
-    // 狀態 C: 電腦版主頁 (Desktop)
-    // ------------------------------------
     else {
         bubble.classList.remove('active-mobile');
 
-        // C-1. 封面模式 (滑鼠在封面 且 書沒開) -> 顯示氣泡，隱藏紅點
         if (cursorState.isHoveringCover && !document.body.classList.contains('is-book-open')) {
             bubble.classList.add('active');
             mainCursor.style.opacity = '0'; 
             bubble.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) translate(-50%, -50%)`;
         } 
-        // C-2. 一般模式 -> 顯示紅點，隱藏氣泡
         else {
             bubble.classList.remove('active');
             mainCursor.style.opacity = '1';
@@ -672,3 +645,86 @@ function loopCursor() {
 
 initCustomCursor();
 loopCursor();
+
+// ===============================================
+// 手機版：攝影作品飛入特效 (縮小 + 更分散版)
+// ===============================================
+function initMobilePhotoPreview() {
+    if (window.innerWidth > 768) return; 
+
+    const container = document.getElementById('preview-container');
+    const viewMoreBtn = document.getElementById('view-more-btn');
+    if (!container || !viewMoreBtn) return;
+
+    // 清空舊的內容 (防止重複執行時堆疊)
+    // 注意：這裡我們只移除 .photo-wrapper，保留按鈕
+    const oldWrappers = container.querySelectorAll('.photo-wrapper');
+    oldWrappers.forEach(el => el.remove());
+
+    const previewImages = photographyData.slice(0, 3);
+    
+    [...previewImages].reverse().forEach((src, index) => {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'photo-wrapper';
+        
+        // [修改] 大幅增加分散範圍，確保照片分開
+        const randomRot = (Math.random() * 40 - 20) + 'deg'; // 旋轉角度加大 (-20 ~ 20)
+        
+        // X軸分散：-100px ~ 100px (範圍變大，讓照片可以飛到更左右兩邊)
+        const randomX = (Math.random() * 200 - 100) + 'px';   
+        
+        // Y軸分散：-120px ~ 120px (範圍變大，拉開上下距離)
+        const randomY = (Math.random() * 240 - 120) + 'px';   
+        
+        wrapper.style.setProperty('--r', randomRot);
+        wrapper.style.setProperty('--x', randomX);
+        wrapper.style.setProperty('--y', randomY);
+
+        const img = document.createElement('img');
+        img.src = src;
+        
+        const pin = document.createElement('div');
+        pin.className = 'pin';
+
+        wrapper.appendChild(pin);
+        wrapper.appendChild(img);
+        
+        container.insertBefore(wrapper, container.firstChild); 
+    });
+
+    // 飛入動畫偵測
+    const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+            if (entry.isIntersecting) {
+                const wrappers = container.querySelectorAll('.photo-wrapper');
+                wrappers.forEach((wrap, i) => {
+                    setTimeout(() => {
+                        wrap.classList.add('visible');
+                    }, i * 300); 
+                });
+                
+                setTimeout(() => {
+                    viewMoreBtn.classList.add('visible');
+                }, wrappers.length * 300 + 200);
+
+                observer.unobserve(entry.target);
+            }
+        });
+    }, { threshold: 0.2 });
+
+    const section = document.getElementById('mobile-photo-preview');
+    if (section) observer.observe(section);
+
+    // 滾動偵測氣泡
+    window.addEventListener('scroll', () => {
+        const bubble = document.getElementById('cursor-bubble');
+        if (!bubble) return;
+        if (window.scrollY > 50) {
+            bubble.classList.add('hide-on-scroll');
+        } else {
+            if (!document.body.classList.contains('is-book-open')) {
+                bubble.classList.remove('hide-on-scroll');
+            }
+        }
+    });
+}

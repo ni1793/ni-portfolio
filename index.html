@@ -35,10 +35,21 @@
             </div>
         </div>
 
+        <div id="mobile-scroll-indicator">
+            <span>SCROLL</span>
+            <i class="fa-solid fa-chevron-down"></i>
+        </div>
+
         <div class="text-nav">
-            <span onclick="openPhotoGallery()">Photography</span>
+            <span class="desktop-only-nav" onclick="openPhotoGallery()">Photography</span>
             <span onclick="window.open('https://www.instagram.com/p/DO-i2LVE80f/', '_blank')">Motion</span>
             <span onclick="openContactModal()">Contact</span>
+        </div>
+    </section>
+
+    <section id="mobile-photo-preview">
+        <div class="preview-container" id="preview-container">
+            <button class="view-more-btn" id="view-more-btn" onclick="openPhotoGallery()">VIEW MORE</button>
         </div>
     </section>
 
