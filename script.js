@@ -338,25 +338,36 @@ function handlePageClick(page, e) {
     let index = parseFloat(page.dataset.index);
     let project = projectsData[index];
 
+    // 1. 如果書還沒開，先開書
     if (!isBookOpen) {
         openBook();
         return;
     }
+
+    // 排除封面
     if (project.isCover) return;
+    
+    // 封底則執行關書
     if (project.isBackCover) {
         closeBook();
         return;
     } 
     
-    if (index === currentIndex) {
-        setTimeout(() => {
-            openProjectDetail(project.id);
-        }, 100);
-    } else {
-        if (index < 1) index = 1;
-        currentIndex = index;
-        updateTargetAngleByIndex();
-    }
+    // ===============================================
+    // [修改] 點擊即打開 (One-Click Open)
+    // ===============================================
+    
+    // 1. 為了讓背景的書本也跟著轉到正確位置，我們先更新 currentIndex
+    // (這樣關閉詳情頁時，書本會剛好停在你點的那一頁)
+    if (index < 1) index = 1; // 安全機制
+    currentIndex = index;
+    updateTargetAngleByIndex();
+
+    // 2. 不需等待，直接彈出詳情視窗
+    // 設定極短的延遲 (50ms) 讓視覺轉場更順暢
+    setTimeout(() => {
+        openProjectDetail(project.id);
+    }, 50);
 }
 
 // ===============================================
