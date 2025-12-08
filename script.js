@@ -66,7 +66,6 @@ const backCoverProject = {
 
 // 合併資料
 let projectsData = [coverProject].concat(projects).concat([backCoverProject]);
-
 const photographyData = ["images/album/01.jpg", "images/album/02.jpg", "images/album/03.jpg"];
 
 
@@ -78,32 +77,31 @@ let targetAngle = 0;
 let isBookOpen = false;
 let hoveredIndex = -1;
 
-// [新增] 專門用來追蹤手機版目前翻到第幾頁 (0 = 封面)
+// [重要] 追蹤手機版目前翻到第幾頁 (0=封面, 1=第一張卡片...)
 let currentIndex = 0; 
 
-// 物理拖曳
+// 物理拖曳與互動變數
 let isDragging = false;
 let startX = 0;
 let lastX = 0;
 let velocity = 0;
-let clickThreshold = 10; // 點擊判定更加寬鬆
+let clickThreshold = 10; // 點擊判定門檻 (像素)
 let downX = 0;
 let downY = 0;
 let activePageElement = null; 
 
-// [新增] 統一計算角度的工具：直接把書轉到 currentIndex 那一頁
+// [新增] 角度計算工具：強制把書轉到 currentIndex 那一頁的正中央
 function updateTargetAngleByIndex() {
     const count = projectsData.length;
-    const totalSpan = 80; // 必須與 render3DBook 裡的設定一致
+    const totalSpan = 80; 
     const step = totalSpan / (count - 1);
     const startAngle = totalSpan / 2;
 
     // 公式：目標角度 = -(當前頁索引 * 每頁間隔 - 起始偏移)
-    // 這會算出該頁面「正對鏡頭」時，書本需要的旋轉角度
     const exactAngle = -(currentIndex * step - startAngle);
     
     targetAngle = exactAngle;
-    velocity = 0; // 歸零慣性，確保死死停在中間
+    velocity = 0; // 歸零慣性，確保畫面死死停在正中間
 }
 
 // ===============================================
@@ -130,28 +128,20 @@ function render3DBook() {
         page.style.zIndex = 1000 - index;
         
         const bgImage = project.cover && !project.cover.includes('undefined') ? project.cover : project.images[0];
-        
         let contentHtml = '';
         
-        // 1. 封面
         if (project.isCover) {
             contentHtml = `
                 <div class="page-content" style="justify-content:center; align-items:center; position: relative; width: 100%;">
                     <h1 style="font-size:20px; font-weight:900; margin:0; letter-spacing: 3px;">PORTFOLIO</h1>
-                </div>
-            `;
-        } 
-        // 2. 封底
-        else if (project.isBackCover) {
+                </div>`;
+        } else if (project.isBackCover) {
              contentHtml = `
                 <div class="page-content" style="justify-content:center; align-items:center; background:#111; color:#fff;">
                     <h1 style="font-size:24px; font-weight:900; letter-spacing: 2px;">THANKS</h1>
                     <p style="font-size:12px; margin-top:10px; color:#666;">CLICK TO CLOSE</p>
-                </div>
-            `;
-        }
-        // 3. 一般專案卡片
-        else {
+                </div>`;
+        } else {
             const catText = project.category ? project.category : "";
             contentHtml = `
                 <div class="page-header" style="justify-content: flex-end; border-bottom: none; padding-right: 20px;">
@@ -162,8 +152,7 @@ function render3DBook() {
                 </div>
                 <div class="page-footer">
                     <h3 class="page-title">${project.title}</h3>
-                </div>
-            `;
+                </div>`;
         }
 
         page.innerHTML = `
@@ -175,12 +164,10 @@ function render3DBook() {
         let myAngle = (index * step) - startAngle;
         page.dataset.baseAngle = myAngle;
         page.dataset.index = index;
-        page.addEventListener('mouseenter', () => {
-            hoveredIndex = index;
-        });
-        page.addEventListener('mouseleave', () => {
-            hoveredIndex = -1;
-        });
+        
+        page.addEventListener('mouseenter', () => hoveredIndex = index);
+        page.addEventListener('mouseleave', () => hoveredIndex = -1);
+        
         page.style.transform = `rotateY(0deg) translateZ(${-index * 0.2}px)`;
         page.onpointerdown = (e) => handlePointerDown(e, page);
 
@@ -194,9 +181,8 @@ function render3DBook() {
     document.addEventListener('pointercancel', handlePointerUp);
 }
 
-
 // ===============================================
-// 書籍互動邏輯 (修正版)
+// 書籍互動邏輯 (Open / Close)
 // ===============================================
 function openBook() {
     isBookOpen = true;
@@ -207,9 +193,9 @@ function openBook() {
     if (window.innerWidth <= 768) {
         document.body.classList.add('reading-mode');
         
-        // [關鍵修正] 打開時，強制設定為第 0 頁 (封面)，並立刻轉過去
-        // 這樣就不會出現「背對」或角度奇怪的問題了
-        currentIndex = 0;
+        // [關鍵] 手機版打開時，直接設定為第 1 頁 (第一張作品卡片)，跳過封面(0)
+        // 這樣打開就是正對著作品，不會有背對感
+        currentIndex = 1; 
         updateTargetAngleByIndex(); 
 
     } else {
@@ -228,8 +214,6 @@ function closeBook() {
     isBookOpen = false;
     document.body.classList.remove('is-book-open');
     document.getElementById('book-spine').classList.remove('is-open');
-    
-    // 解除閱讀模式
     document.body.classList.remove('reading-mode');
 
     const pages = document.querySelectorAll('.book-page');
@@ -238,27 +222,15 @@ function closeBook() {
         page.style.transform = `rotateY(0deg) translateZ(${-index}px)`;
     });
     
-    // [關鍵] 關閉時徹底歸零，確保下次打開時封面是正的
+    // [關鍵] 關閉時徹底歸零，確保下次打開時狀態正確
     targetAngle = 0;
     currentAngle = 0;
     currentIndex = 0; 
 }
 
-// [新增] 根據 currentIndex 計算書本該轉到的精準角度
-function updateTargetAngleByIndex() {
-    const count = projectsData.length;
-    const totalSpan = 80; 
-    const step = totalSpan / (count - 1);
-    const startAngle = totalSpan / 2;
-
-    // 公式：目標角度 = -(當前頁索引 * 每頁間隔 - 起始偏移)
-    const exactAngle = -(currentIndex * step - startAngle);
-    
-    targetAngle = exactAngle;
-    velocity = 0; // 歸零慣性，確保死死停在中間
-}
-
-// --- Pointer Events ---
+// ===============================================
+// 觸控與滑鼠事件 (Pointer Events)
+// ===============================================
 function handlePointerDown(e, page) {
     if (e.button !== 0) return;
     if (!document.querySelector('.modal-overlay.hidden')) return;
@@ -276,30 +248,28 @@ function handlePointerDown(e, page) {
 
 function handlePointerMove(e) {
     if (!isDragging) return;
-    e.preventDefault();
+    e.preventDefault(); // 防止拖曳時觸發瀏覽器預設行為
 
     const deltaX = e.clientX - lastX;
-    
-    // 紀錄這次移動的方向與速度
     velocity = deltaX; 
-    
     lastX = e.clientX;
 
     if (isBookOpen) {
-        // [修改] 手機版靈敏度設為 2.0 (適中順手)
-        const sensitivity = window.innerWidth <= 768 ? 2.0 : 0.4;
+        // 手機版給予一點點拖曳反饋，但真正的切換由 handlePointerUp 決定
+        const sensitivity = window.innerWidth <= 768 ? 1.5 : 0.4;
         targetAngle += deltaX * sensitivity; 
     }
 }
+
 function handlePointerUp(e) {
     if (!isDragging) return;
     isDragging = false;
     document.querySelector('.scene').style.cursor = 'grab';
 
     const dist = Math.sqrt(Math.pow(e.clientX - downX, 2) + Math.pow(e.clientY - downY, 2));
-    const totalMoveX = e.clientX - downX; // 水平位移量
+    const totalMoveX = e.clientX - downX; // 計算水平位移量
 
-    // 1. 如果幾乎沒動 (小於 10px)，視為「點擊」
+    // 1. 如果移動距離極小 (< 10px)，視為「點擊」
     if (dist < 10) { 
         velocity = 0; 
         if (activePageElement) {
@@ -312,26 +282,26 @@ function handlePointerUp(e) {
     activePageElement = null;
 
     // ===============================================
-    // [最終極速版] 手機版翻頁：超靈敏卡片切換
+    // [手機版翻頁] 極速卡片切換 (Easy Flip)
     // ===============================================
     if (window.innerWidth <= 768 && isBookOpen) {
         
         // [關鍵] 設定極低的滑動門檻 (15px)
-        // 只要手指稍微動一下，就判定為換頁
+        // 只要手指輕輕一撥，就判定為換頁，不再需要滑很遠
         const swipeThreshold = 15;
 
         if (totalMoveX < -swipeThreshold) {
-            // 往左滑 (手指往左，想看右邊下一張) -> 下一頁
+            // 往左滑 -> 下一張
             if (currentIndex < projectsData.length - 1) {
                 currentIndex++;
             }
         } else if (totalMoveX > swipeThreshold) {
-            // 往右滑 (手指往右，想看左邊上一張) -> 上一頁
+            // 往右滑 -> 上一張
             if (currentIndex > 0) {
                 currentIndex--;
             }
         }
-        // 如果滑動距離太短，index 不變 (自動吸附回原位)
+        // 如果沒超過門檻，currentIndex 不變 (自動吸附回原位)
 
         // 執行切換 (啪！轉過去)
         updateTargetAngleByIndex();
@@ -346,11 +316,8 @@ function handlePageClick(page, e) {
         openBook();
         return;
     }
-
-    if (project.isCover) {
-        return;
-    }
-    else if (project.isBackCover) {
+    if (project.isCover) return;
+    if (project.isBackCover) {
         closeBook();
         return;
     } 
@@ -362,7 +329,10 @@ function handlePageClick(page, e) {
     // 判斷：點擊的是不是「目前正中間」那一頁？
     if (index === currentIndex) {
         // 是 -> 打開詳情
-        if(e) createStarExplosion(e.clientX, e.clientY);
+        
+        // [關鍵修正] 徹底移除漫畫線條特效 (電腦/手機都不觸發)
+        // if (window.innerWidth <= 768 && e) { ... } -> 移除
+        
         setTimeout(() => {
             openProjectDetail(project.id);
         }, 100);
@@ -373,52 +343,22 @@ function handlePageClick(page, e) {
     }
 }
 
-function handlePageClick(page, e) {
-    let index = parseFloat(page.dataset.index);
-    let project = projectsData[index];
-
-    if (!isBookOpen) {
-        openBook();
-        return;
-    }
-
-    if (project.isCover) {
-        return;
-    }
-    else if (project.isBackCover) {
-        closeBook();
-        return;
-    } 
-    
-    // ===============================================
-    // [最終版] 點擊互動
-    // ===============================================
-    
-    // 判斷：點擊的是不是「目前正中間」那一頁？
-    if (index === currentIndex) {
-        // 是 -> 打開詳情
-        if(e) createStarExplosion(e.clientX, e.clientY);
-        setTimeout(() => {
-            openProjectDetail(project.id);
-        }, 100);
-    } else {
-        // 否 -> 切換到那一頁
-        currentIndex = index;
-        updateTargetAngleByIndex();
-    }
-}
-
-// --- 動畫迴圈 ---
+// ===============================================
+// 動畫迴圈 (Animation Loop)
+// ===============================================
 function updateCarousel() {
     const container = document.getElementById('book-spine');
     if (!container) return;
 
+    // 只有在非拖曳狀態下才應用慣性衰減，但手機版我們主要靠 updateTargetAngleByIndex 強制定位
     if (!isDragging && isBookOpen) {
-        targetAngle += velocity;
-        velocity *= 0.95; 
+        if (window.innerWidth > 768) {
+            targetAngle += velocity;
+            velocity *= 0.95; 
+        }
     }
 
-    currentAngle += (targetAngle - currentAngle) * 0.08;
+    currentAngle += (targetAngle - currentAngle) * 0.1; // 0.1 讓動畫稍微快一點點
     
     if (isBookOpen) {
         container.style.transform = `rotateY(${currentAngle}deg)`;
@@ -440,15 +380,14 @@ function updateCarousel() {
         let extraFlip = 0;
 
         if (hoveredIndex !== -1) {
-            if (index > hoveredIndex) {
-                spreadOffset = 60; 
-            }
-            else if (index < hoveredIndex) {
-                spreadOffset = -60;
-            }
+            if (index > hoveredIndex) spreadOffset = 60; 
+            else if (index < hoveredIndex) spreadOffset = -60;
         }
-        if (visualAngle > 50) extraFlip = 15; 
-        if (visualAngle < -50) extraFlip = -15;
+        // 電腦版才有的翻轉特效，手機版保持平整
+        if (window.innerWidth > 768) {
+             if (visualAngle > 50) extraFlip = 15; 
+             if (visualAngle < -50) extraFlip = -15;
+        }
 
         let finalAngle = baseAngle + spreadOffset + extraFlip;
         
@@ -465,7 +404,7 @@ function updateCarousel() {
 }
 
 // ===============================================
-// UI 與視窗控制
+// UI 與視窗控制 (保持不變)
 // ===============================================
 function openProjectDetail(id) {
     const project = projects.find(p => p.id === id);
@@ -522,16 +461,13 @@ function updateClock() {
     const now = new Date();
     const timeEl = document.getElementById('clock-time');
     const dateEl = document.getElementById('clock-date');
-    
     if(timeEl) timeEl.innerText = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
-    
     if(dateEl) {
         const options = { weekday: 'long', month: 'long', day: 'numeric' };
         dateEl.innerText = now.toLocaleDateString('en-US', options);
     }
 }
 updateClock();
-
 setInterval(updateClock, 1000);
 
 function unlockScreen() {
@@ -539,7 +475,6 @@ function unlockScreen() {
     loginPage.classList.add('hidden'); 
     setTimeout(() => {
         render3DBook(); 
-        // 登入後，初始化手機版的滾動偵測
         initMobilePhotoPreview();
     }, 100);
 }
@@ -552,7 +487,7 @@ document.addEventListener('keydown', (e) => {
 });
 
 // ===============================================
-// 登入頁面：粒子隧道特效 (Particle Tunnel)
+// 粒子隧道 & 其他特效 (保持不變)
 // ===============================================
 function initParticleTunnel() {
     const loginPage = document.getElementById('login-page');
@@ -568,12 +503,10 @@ function initParticleTunnel() {
     const ctx = canvas.getContext('2d');
     let width, height;
     let particles = [];
-    
     const particleCount = 400; 
     const speed = 2; 
     const mouseRepelRadius = 150; 
     const mouseRepelForce = 2;   
-
     let mouseX = -1000;
     let mouseY = -1000;
 
@@ -592,274 +525,139 @@ function initParticleTunnel() {
     });
 
     class Particle {
-        constructor() {
-            this.init();
-        }
-
+        constructor() { this.init(); }
         init() {
             this.x = (Math.random() - 0.5) * width * 2;
             this.y = (Math.random() - 0.5) * height * 2;
             this.z = Math.random() * width; 
-            this.ox = this.x;
-            this.oy = this.y;
+            this.ox = this.x; this.oy = this.y;
         }
-
         update() {
             this.z -= speed;
-            if (this.z <= 0) {
-                this.init(); 
-                this.z = width;
-            }
-
+            if (this.z <= 0) { this.init(); this.z = width; }
             const perspective = 300; 
             const k = perspective / this.z; 
             const px = width / 2 + this.x * k;
             const py = height / 2 + this.y * k;
-
             const dx = px - mouseX;
             const dy = py - mouseY;
             const dist = Math.sqrt(dx * dx + dy * dy);
-
             if (dist < mouseRepelRadius) {
                 const angle = Math.atan2(dy, dx);
                 this.x += Math.cos(angle) * mouseRepelForce * (this.z / perspective);
                 this.y += Math.sin(angle) * mouseRepelForce * (this.z / perspective);
             }
-
             const size = (1 - this.z / width) * 3; 
             const alpha = (1 - this.z / width);    
-
             ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
             ctx.beginPath();
             ctx.arc(px, py, size > 0 ? size : 0, 0, Math.PI * 2);
             ctx.fill();
         }
     }
-
-    for (let i = 0; i < particleCount; i++) {
-        particles.push(new Particle());
-    }
-
+    for (let i = 0; i < particleCount; i++) particles.push(new Particle());
     function animate() {
         if (loginPage.classList.contains('hidden')) return; 
-
         ctx.fillStyle = 'rgba(0, 0, 0, 0.3)'; 
         ctx.fillRect(0, 0, width, height);
-
         particles.forEach(p => p.update());
         requestAnimationFrame(animate);
     }
-
     animate();
 }
-
 window.addEventListener('load', initParticleTunnel);
 
-
 // ===============================================
-// 特效 (漫畫線條)
+// 自定義游標 (保持不變)
 // ===============================================
-function createStarExplosion(x, y) {
-    const lineCount = 12; 
-    for (let j = 0; j < lineCount; j++) {
-        const line = document.createElement('div');
-        line.classList.add('comic-line');
-        document.body.appendChild(line);
-
-        const angle = (360 / lineCount) * j + (Math.random() * 20); 
-        const length = 150 + Math.random() * 100; 
-
-        line.style.left = x + 'px';
-        line.style.top = y + 'px';
-        line.style.width = length + 'px';
-        line.style.transform = `translate(-100%, -50%) rotate(${angle}deg)`; 
-
-        line.addEventListener('animationend', () => line.remove());
-    }
-}
-
-// ===============================================
-// 自定義游標
-// ===============================================
-const cursorState = {
-    x: window.innerWidth / 2, 
-    y: window.innerHeight / 2, 
-    bx: window.innerWidth / 2, 
-    by: window.innerHeight / 2, 
-    isHoveringCover: false
-};
-
+const cursorState = { x: 0, y: 0, bx: 0, by: 0, isHoveringCover: false };
 let cursorScale = 1;
-
-document.addEventListener('mousedown', () => {
-    cursorScale = 0.5; 
-});
-document.addEventListener('mouseup', () => {
-    cursorScale = 1;   
-});
-
+document.addEventListener('mousedown', () => cursorScale = 0.5);
+document.addEventListener('mouseup', () => cursorScale = 1);
 function initCustomCursor() {
     if (!document.getElementById('main-cursor')) {
-        const c = document.createElement('div');
-        c.id = 'main-cursor';
-        document.body.appendChild(c);
+        const c = document.createElement('div'); c.id = 'main-cursor'; document.body.appendChild(c);
     }
-    
     if (!document.getElementById('cursor-bubble')) {
-        const b = document.createElement('div');
-        b.id = 'cursor-bubble';
-        b.innerText = 'OPEN IT!';
-        document.body.appendChild(b);
+        const b = document.createElement('div'); b.id = 'cursor-bubble'; b.innerText = 'OPEN IT!'; document.body.appendChild(b);
     }
 }
-
 document.addEventListener('mousemove', (e) => {
-    cursorState.x = e.clientX;
-    cursorState.y = e.clientY;
-    
-    if (e.target.closest('.book-page.is-cover')) {
-        cursorState.isHoveringCover = true;
-    } else {
-        cursorState.isHoveringCover = false;
-    }
+    cursorState.x = e.clientX; cursorState.y = e.clientY;
+    cursorState.isHoveringCover = !!e.target.closest('.book-page.is-cover');
 });
-
 function loopCursor() {
     const mainCursor = document.getElementById('main-cursor');
     const bubble = document.getElementById('cursor-bubble');
     const loginPage = document.getElementById('login-page');
-    
-    if (!mainCursor || !bubble) {
-        requestAnimationFrame(loopCursor);
-        return;
-    }
-
+    if (!mainCursor || !bubble) { requestAnimationFrame(loopCursor); return; }
     const isLoginOpen = loginPage && !loginPage.classList.contains('hidden');
-
     cursorState.bx += (cursorState.x - cursorState.bx) * 0.2;
     cursorState.by += (cursorState.y - cursorState.by) * 0.2;
-
     const isMobile = window.innerWidth <= 768;
-
     if (isLoginOpen) {
-        bubble.classList.remove('active');
-        bubble.classList.remove('active-mobile');
-        
-        if (isMobile) {
-             mainCursor.style.opacity = '0'; 
-        } else {
-             mainCursor.style.opacity = '1'; 
-             mainCursor.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) scale(${cursorScale})`;
-        }
-    }
-    else if (isMobile) {
+        bubble.classList.remove('active', 'active-mobile');
+        mainCursor.style.opacity = isMobile ? '0' : '1';
+        if(!isMobile) mainCursor.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) scale(${cursorScale})`;
+    } else if (isMobile) {
         if (!document.body.classList.contains('is-book-open')) {
-            bubble.classList.add('active-mobile');
-            bubble.classList.remove('active');
+            bubble.classList.add('active-mobile'); bubble.classList.remove('active');
         } else {
             bubble.classList.remove('active-mobile');
         }
         mainCursor.style.opacity = '0';
-    } 
-    else {
+    } else {
         bubble.classList.remove('active-mobile');
-
         if (cursorState.isHoveringCover && !document.body.classList.contains('is-book-open')) {
-            bubble.classList.add('active');
-            mainCursor.style.opacity = '0'; 
+            bubble.classList.add('active'); mainCursor.style.opacity = '0';
             bubble.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) translate(-50%, -50%)`;
-        } 
-        else {
-            bubble.classList.remove('active');
-            mainCursor.style.opacity = '1';
+        } else {
+            bubble.classList.remove('active'); mainCursor.style.opacity = '1';
             mainCursor.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) scale(${cursorScale})`;
         }
     }
-
     requestAnimationFrame(loopCursor);
 }
+initCustomCursor(); loopCursor();
 
-initCustomCursor();
-loopCursor();
-
-// ===============================================
-// 手機版：攝影作品預覽 (垂直堆疊 + 微幅錯位)
-// ===============================================
+// 手機版相簿預覽 (保持不變)
 function initMobilePhotoPreview() {
     if (window.innerWidth > 768) return; 
-
     const container = document.getElementById('preview-container');
     const viewMoreBtn = document.getElementById('view-more-btn');
     if (!container || !viewMoreBtn) return;
-
-    // 清空舊內容
     const oldWrappers = container.querySelectorAll('.photo-wrapper');
     oldWrappers.forEach(el => el.remove());
-
     const previewImages = photographyData.slice(0, 3);
-    
-    // 這裡改回正常順序插入，因為 relative 排列會從上往下
     previewImages.forEach((src, index) => {
-        const wrapper = document.createElement('div');
-        wrapper.className = 'photo-wrapper';
-        
-        // [修改] 亂數範圍縮小，只做微調
-        const randomRot = (Math.random() * 10 - 5) + 'deg'; // 旋轉 -5 ~ 5 度
-        const randomX = (Math.random() * 40 - 20) + 'px';   // 左右微調 -20 ~ 20px
-        const randomY = (Math.random() * 20 - 10) + 'px';   // 上下微調 -10 ~ 10px
-        const delay = Math.random() * 2; // 隨機動畫延遲
-        
-        wrapper.style.setProperty('--r', randomRot);
-        wrapper.style.setProperty('--x', randomX);
-        wrapper.style.setProperty('--y', randomY);
-        wrapper.style.setProperty('--delay', delay);
-
-        const img = document.createElement('img');
-        img.src = src;
-        
-        const pin = document.createElement('div');
-        pin.className = 'pin';
-
-        wrapper.appendChild(pin);
-        wrapper.appendChild(img);
-        
-        // 插入到按鈕之前
+        const wrapper = document.createElement('div'); wrapper.className = 'photo-wrapper';
+        const randomRot = (Math.random() * 10 - 5) + 'deg';
+        const randomX = (Math.random() * 40 - 20) + 'px';
+        const randomY = (Math.random() * 20 - 10) + 'px';
+        const delay = Math.random() * 2;
+        wrapper.style.setProperty('--r', randomRot); wrapper.style.setProperty('--x', randomX);
+        wrapper.style.setProperty('--y', randomY); wrapper.style.setProperty('--delay', delay);
+        const img = document.createElement('img'); img.src = src;
+        const pin = document.createElement('div'); pin.className = 'pin';
+        wrapper.appendChild(pin); wrapper.appendChild(img);
         container.insertBefore(wrapper, viewMoreBtn); 
     });
-
-    // 飛入動畫偵測
     const observer = new IntersectionObserver((entries) => {
         entries.forEach(entry => {
             if (entry.isIntersecting) {
                 const wrappers = container.querySelectorAll('.photo-wrapper');
-                wrappers.forEach((wrap, i) => {
-                    setTimeout(() => {
-                        wrap.classList.add('visible');
-                    }, i * 300); 
-                });
-                
-                setTimeout(() => {
-                    viewMoreBtn.classList.add('visible');
-                }, wrappers.length * 300 + 200);
-
+                wrappers.forEach((wrap, i) => setTimeout(() => wrap.classList.add('visible'), i * 300));
+                setTimeout(() => viewMoreBtn.classList.add('visible'), wrappers.length * 300 + 200);
                 observer.unobserve(entry.target);
             }
         });
     }, { threshold: 0.1 });
-
     const section = document.getElementById('mobile-photo-preview');
     if (section) observer.observe(section);
-
-    // 氣泡滾動消失邏輯保持不變
     window.addEventListener('scroll', () => {
         const bubble = document.getElementById('cursor-bubble');
         if (!bubble) return;
-        if (window.scrollY > 50) {
-            bubble.classList.add('hide-on-scroll');
-        } else {
-            if (!document.body.classList.contains('is-book-open')) {
-                bubble.classList.remove('hide-on-scroll');
-            }
-        }
+        if (window.scrollY > 50) bubble.classList.add('hide-on-scroll');
+        else if (!document.body.classList.contains('is-book-open')) bubble.classList.remove('hide-on-scroll');
     });
 }
