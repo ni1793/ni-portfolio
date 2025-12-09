@@ -17,7 +17,7 @@ const projects = [
         category: "展覽主視覺設計", 
         cover: "images/project2/01.jpg", 
         description: "Possessing a Vulnerable Body", 
-        images: ["images/project2/01.jpg", "images/project2/02.jpg", "images/project2/03.jpg"] 
+        images: ["images/project2/01.jpg", "images/project2/02.jpg", "images/project2/03.jpg", "images/project2/04.jpg", "images/project2/05.jpg", "images/project2/06.jpg"] 
     },
     { 
         id: 3, 
@@ -25,7 +25,7 @@ const projects = [
         category: "展覽網頁宣傳", 
         cover: "images/project3/01.jpg", 
         description: "Continuation of Play", 
-        images: ["images/project3/01.jpg", "images/project3/02.jpg", "images/project3/03.jpg"] 
+        images: ["images/project3/01.jpg", "images/project3/02.jpg", "images/project3/03.jpg", "images/project3/04.jpg"] 
     },
     { 
         id: 4, 
@@ -41,7 +41,7 @@ const projects = [
         category: "插畫作品", 
         cover: "images/project5/01.jpg", 
         description: "Personal Collection", 
-        images: ["images/project5/01.jpg", "images/project5/02.jpg", "images/project5/03.jpg"] 
+        images: ["images/project5/01.jpg", "images/project5/02.jpg", "images/project5/03.jpg", "images/project5/04.jpg", "images/project5/05.jpg", "images/project5/06.jpg", "images/project5/07.jpg", "images/project5/08.jpg"] 
     }
 ];
 
@@ -138,7 +138,7 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 // ===============================================
-// 渲染書籍 (Render Book)
+// 渲染書籍
 // ===============================================
 function render3DBook() {
     const container = document.getElementById('book-spine');
@@ -261,25 +261,28 @@ function closeBook() {
     pages.forEach((page, index) => {
         page.classList.add('closed');
         page.style.transform = `rotateY(0deg) translateZ(${-index}px)`;
+        
+        // [關鍵修正] 關閉時重置層級，確保封面 (Index 0) 在最上面 (1000)
+        // 這樣就不會發生「關書後封面不是封面」的亂跳問題
+        page.style.zIndex = 1000 - index;
     });
     
-    // [關鍵] 關書時，歸零 index 為 0 (封面)
+    // 歸零狀態
     targetAngle = 0;
     currentAngle = 0;
     currentIndex = 0; 
 }
 
 // ===============================================
-// [新增] 點擊背景關閉書籍監聽器
+// 點擊背景關閉書籍
 // ===============================================
 document.addEventListener('click', (e) => {
-    // 只有在手機版 & 書籍打開時才運作
     if (window.innerWidth <= 768 && isBookOpen) {
-        // 檢查點擊目標
-        // 如果點擊的不是 .book-page (書本) 且不是 #mobile-slider-container (滑軌容器) 且不是 view-more 按鈕
+        // 如果點擊的不是 .book-page 且不是滑軌 且不是詳情按鈕
         if (!e.target.closest('.book-page') && 
             !e.target.closest('#mobile-slider-container') && 
-            !e.target.closest('.view-more-btn')) {
+            !e.target.closest('.view-more-btn') &&
+            !document.body.classList.contains('modal-open')) { // 且沒有打開視窗時
             closeBook();
         }
     }
@@ -406,12 +409,15 @@ function updateCarousel() {
         
         let distFromCenter = Math.abs(visualAngle);
         if (distFromCenter > 180) distFromCenter = 360 - distFromCenter;
+        
+        // 動態層級：讓當前頁面浮在最上面
         page.style.zIndex = 1000 - Math.round(distFromCenter);
 
         let spreadOffset = 0;
         let extraFlip = 0;
 
         if (window.innerWidth <= 768) {
+            // 手機版彈開效果
             if (index > currentIndex) spreadOffset = 40; 
             else if (index < currentIndex) spreadOffset = -40;
         } else {
@@ -436,7 +442,9 @@ function updateCarousel() {
     requestAnimationFrame(updateCarousel);
 }
 
-// ... 後續函數 (UI, Lightbox, Clock, Init) ...
+// ===============================================
+// UI 與視窗控制 - [修正：添加 modal-open 類別]
+// ===============================================
 function openProjectDetail(id) {
     const project = projects.find(p => p.id === id);
     if (!project) return;
@@ -453,11 +461,28 @@ function openProjectDetail(id) {
         </div>
         <div class="detail-images">${imagesHtml}</div>
     `;
+    
+    // [修正] 打開時鎖定背景並隱藏滑軌
+    document.body.classList.add('modal-open');
     modal.classList.remove('hidden');
 }
-function closeProjectModal() { document.getElementById('project-modal').classList.add('hidden'); }
-function openContactModal() { document.getElementById('contact-modal').classList.remove('hidden'); }
-function closeContactModal() { document.getElementById('contact-modal').classList.add('hidden'); }
+
+function closeProjectModal() { 
+    document.getElementById('project-modal').classList.add('hidden');
+    // [修正] 關閉時恢復
+    document.body.classList.remove('modal-open');
+}
+
+function openContactModal() { 
+    document.getElementById('contact-modal').classList.remove('hidden'); 
+    document.body.classList.add('modal-open');
+}
+
+function closeContactModal() { 
+    document.getElementById('contact-modal').classList.add('hidden'); 
+    document.body.classList.remove('modal-open');
+}
+
 function openPhotoGallery() {
     const contentEl = document.getElementById('detail-content');
     const modal = document.getElementById('project-modal');
@@ -466,8 +491,12 @@ function openPhotoGallery() {
         `<div style="cursor:pointer; margin-bottom:15px;" onclick="openLightbox('${imgSrc}')"><img src="${imgSrc}" style="width:100%;"></div>`
     ).join('');
     contentEl.innerHTML = `<div style="column-count:2; gap:15px;">${galleryHtml}</div>`;
+    
+    document.body.classList.add('modal-open');
     modal.classList.remove('hidden');
 }
+
+// ... Lightbox, Clock, Init ...
 function openLightbox(src) {
     document.getElementById('lightbox-img').src = src;
     document.getElementById('lightbox').classList.remove('hidden');
@@ -494,7 +523,7 @@ document.addEventListener('keydown', (e) => {
     if(e.key === 'Enter' && loginPage && !loginPage.classList.contains('hidden')) unlockScreen();
 });
 
-// 粒子特效
+// 粒子特效 & 氣泡邏輯 (保持不變)
 function initParticleTunnel() {
     const loginPage = document.getElementById('login-page');
     if (!loginPage) return;
@@ -557,7 +586,7 @@ document.addEventListener('mousemove', (e) => {
     cursorState.isHoveringCover = !!e.target.closest('.book-page.is-cover');
 });
 
-// [修正] 氣泡顯示邏輯：防止它在滾動時或書本打開時顯示
+// [修正] 氣泡顯示邏輯
 function loopCursor() {
     const mainCursor = document.getElementById('main-cursor');
     const bubble = document.getElementById('cursor-bubble');
@@ -574,7 +603,6 @@ function loopCursor() {
         mainCursor.style.opacity = isMobile ? '0' : '1';
         if(!isMobile) mainCursor.style.transform = `translate(${cursorState.x}px, ${cursorState.y}px) scale(${cursorScale})`;
     } else if (isMobile) {
-        // [關鍵修正] 檢查氣泡是否因為滾動而被隱藏 (hide-on-scroll)
         const isHiddenByScroll = bubble.classList.contains('hide-on-scroll');
         
         if (!document.body.classList.contains('is-book-open') && !isHiddenByScroll) {
@@ -632,7 +660,6 @@ function initMobilePhotoPreview() {
     const section = document.getElementById('mobile-photo-preview');
     if (section) observer.observe(section);
     
-    // 滾動偵測
     window.addEventListener('scroll', () => {
         const bubble = document.getElementById('cursor-bubble');
         if (!bubble) return;

@@ -536,3 +536,14 @@ body.reading-mode #mobile-slider-container {
     transform: scale(1.3); /* 按下時稍微變大，方便觀察 */
     background: rgba(255, 255, 255, 0.9);
 }
+
+/* =========================================
+   [最終修正] 視窗開啟時的狀態管理
+   ========================================= */
+
+/* 當 body 擁有 modal-open 類別時 (代表有視窗打開)，強制隱藏滑軌 */
+body.modal-open #mobile-slider-container {
+    opacity: 0 !important;
+    pointer-events: none !important;
+    transition: opacity 0.2s;
+}
